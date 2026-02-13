@@ -1,0 +1,16 @@
+{
+  "name": "sketchyskills-scanner",
+  "version": "0.1.0",
+  "description": "ClawHub security scanner",
+  "type": "module",
+  "scripts": {
+    "fetch": "node fetch-skills.js",
+    "analyze": "node analyze.js",
+    "score": "node score.js",
+    "scan": "npm run fetch && npm run analyze && npm run score"
+  },
+  "dependencies": {
+    "glob": "^11.0.0"
+  },
+  "devDependencies": {}
+}
