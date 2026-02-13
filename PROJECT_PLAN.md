@@ -53,7 +53,7 @@
 
 ## 🔑 Key Decisions Matt Needs to Make
 
-### Decision 1: API Cost Approval ⏳ PENDING
+### Decision 1: API Cost Approval ✅ APPROVED
 **Context:** Opus 4.6 costs ~$19/scan for 700 skills, ~$20-30/month ongoing
 
 **Options:**
@@ -63,11 +63,11 @@
 - D) Wait on budget approval
 
 **Recommendation:** Option A - $50/month is reasonable for security tooling  
-**Your Decision:** _____________
+**Your Decision:** **A - Approved $50/month budget** ✅
 
 ---
 
-### Decision 2: First Test Run Scope ⏳ PENDING
+### Decision 2: First Test Run Scope ✅ APPROVED
 **Context:** Fetch script is ready but untested on real ClawHub data
 
 **Options:**
@@ -77,11 +77,11 @@
 - D) Wait for more review
 
 **Recommendation:** Option A (safest), then Option B  
-**Your Decision:** _____________
+**Your Decision:** **B - Small batch (10 skills)** ✅
 
 ---
 
-### Decision 3: GitHub Repo Visibility ⏳ PENDING
+### Decision 3: GitHub Repo Visibility ✅ APPROVED
 **Context:** Need to create public GitHub repo before Vercel deployment
 
 **Options:**
@@ -96,11 +96,11 @@
 - [ ] Add LICENSE (MIT recommended)
 - [ ] Add CONTRIBUTING.md
 
-**Your Decision:** _____________
+**Your Decision:** **A - Public from day 1** ✅
 
 ---
 
-### Decision 4: Custom Domain ⏳ PENDING
+### Decision 4: Custom Domain ✅ APPROVED
 **Context:** Vercel gives us `sketchyskills.vercel.app` for free
 
 **Options:**
@@ -109,11 +109,11 @@
 - C) Use subdomain of existing domain you own
 
 **Recommendation:** Option B for MVP, Option A later if successful  
-**Your Decision:** _____________
+**Your Decision:** **B - Free Vercel subdomain (for now)** ✅
 
 ---
 
-### Decision 5: False Positive Handling ⏳ PENDING
+### Decision 5: False Positive Handling ✅ APPROVED
 **Context:** Conservative scoring will flag some legitimate skills
 
 **Options:**
@@ -123,7 +123,7 @@
 - D) Allowlist known-good authors/skills
 
 **Recommendation:** Option A + D (allowlist + community reporting)  
-**Your Decision:** _____________
+**Your Decision:** **A+D - Public reporting + allowlist** ✅
 
 ---
 
