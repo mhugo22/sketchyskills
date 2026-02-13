@@ -124,3 +124,15 @@ th {
   white-space: nowrap;
   border-width: 0;
 }
+
+/* GitHub nav button hover effect */
+.github-nav-button {
+  background: transparent;
+  transition: all 0.2s ease;
+}
+
+.github-nav-button:hover {
+  border-color: var(--link-primary) !important;
+  background: rgba(88, 166, 255, 0.1) !important;
+  text-decoration: none;
+}

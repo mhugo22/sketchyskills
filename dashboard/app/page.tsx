@@ -176,7 +176,7 @@ export default async function Home() {
                         {skill.slug}
                       </Link>
                     </div>
-                    <div className="flex items-center space-x-3 mb-3 ml-20">
+                    <div className="ml-20 mb-2">
                       <span 
                         className="px-3 py-1 rounded-full text-xs font-semibold uppercase border"
                         style={{
@@ -187,6 +187,13 @@ export default async function Home() {
                       >
                         {skill.severity}
                       </span>
+                    </div>
+                    <div className="ml-20 mb-2">
+                      <span className="text-xs" style={{ color: '#768390' }}>
+                        {skill.findingsCount} findings • {skill.meta.fileCount} files analyzed
+                      </span>
+                    </div>
+                    <div className="ml-20 mb-3">
                       <a 
                         href={`https://clawhub.com/skills/${skill.slug}`}
                         target="_blank"
@@ -196,9 +203,6 @@ export default async function Home() {
                       >
                         View on ClawHub →
                       </a>
-                      <span className="text-xs" style={{ color: '#768390' }}>
-                        {skill.findingsCount} findings • {skill.meta.fileCount} files analyzed
-                      </span>
                     </div>
                     <p className="text-sm leading-relaxed" style={{ color: '#adbac7' }}>
                       {skill.summary}

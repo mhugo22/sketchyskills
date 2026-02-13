@@ -28,56 +28,80 @@ export default function RootLayout({
           className="border-b sticky top-0 z-50 backdrop-blur-sm"
           style={{ 
             borderColor: '#30363d',
-            background: 'rgba(15, 20, 25, 0.8)'
+            background: 'rgba(15, 20, 25, 0.95)'
           }}
           role="navigation"
           aria-label="Main navigation"
         >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between h-16 items-center">
+          <div className="max-w-7xl mx-auto px-6 sm:px-8">
+            <div className="flex justify-between items-center py-4">
+              {/* Logo & Brand */}
               <Link 
                 href="/" 
-                className="flex items-center space-x-3 hover:opacity-80 transition"
+                className="flex items-center gap-4 hover:opacity-80 transition-opacity"
                 style={{ minHeight: 'auto', minWidth: 'auto' }}
               >
-                <span className="text-2xl" role="img" aria-label="detective">🕵️</span>
-                <div>
-                  <h1 className="text-xl font-bold" style={{ color: '#58a6ff' }}>
+                <span 
+                  className="text-3xl flex-shrink-0" 
+                  role="img" 
+                  aria-label="detective"
+                >
+                  🕵️
+                </span>
+                <div className="flex flex-col gap-0.5">
+                  <h1 
+                    className="text-xl font-bold tracking-tight"
+                    style={{ color: '#58a6ff' }}
+                  >
                     SketchySkills
                   </h1>
-                  <p className="text-xs" style={{ color: '#768390' }}>
+                  <p 
+                    className="text-xs"
+                    style={{ color: '#768390' }}
+                  >
                     Trust, but verify. We verify.
                   </p>
                 </div>
               </Link>
-              <div className="flex items-center space-x-6">
+
+              {/* Navigation Links */}
+              <div className="flex items-center gap-6">
                 <Link 
                   href="/"
-                  className="font-medium text-sm hover:underline"
-                  style={{ color: '#adbac7', minHeight: 'auto', minWidth: 'auto' }}
+                  className="text-sm font-medium hover:underline transition-colors px-3 py-2"
+                  style={{ color: '#adbac7', minHeight: 'auto', minWidth: 'auto', letterSpacing: '0.025em' }}
                 >
                   Home
                 </Link>
+                <span style={{ color: '#30363d' }}>•</span>
                 <Link 
                   href="/methodology"
-                  className="font-medium text-sm hover:underline"
-                  style={{ color: '#adbac7', minHeight: 'auto', minWidth: 'auto' }}
+                  className="text-sm font-medium hover:underline transition-colors px-3 py-2"
+                  style={{ color: '#adbac7', minHeight: 'auto', minWidth: 'auto', letterSpacing: '0.025em' }}
                 >
                   Methodology
                 </Link>
+                <span style={{ color: '#30363d' }}>•</span>
                 <Link 
                   href="/about"
-                  className="font-medium text-sm hover:underline"
-                  style={{ color: '#adbac7', minHeight: 'auto', minWidth: 'auto' }}
+                  className="text-sm font-medium hover:underline transition-colors px-3 py-2"
+                  style={{ color: '#adbac7', minHeight: 'auto', minWidth: 'auto', letterSpacing: '0.025em' }}
                 >
                   About
                 </Link>
+                <span style={{ color: '#30363d' }}>•</span>
                 <a 
                   href="https://github.com/sketchyskills/sketchyskills"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-medium text-sm hover:underline"
-                  style={{ color: '#adbac7', minHeight: 'auto', minWidth: 'auto' }}
+                  className="github-nav-button text-sm font-medium transition-all px-4 py-2 rounded-md border"
+                  style={{ 
+                    color: '#58a6ff',
+                    borderColor: '#30363d',
+                    minHeight: 'auto', 
+                    minWidth: 'auto',
+                    letterSpacing: '0.025em'
+                  }}
                 >
                   GitHub ↗
                 </a>
