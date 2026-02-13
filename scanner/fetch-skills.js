@@ -25,6 +25,9 @@ const MAX_SKILL_SIZE_MB = 10;
 const DOWNLOAD_TIMEOUT_SEC = 30;
 const MAX_TOTAL_SIZE_MB = 500; // Total storage cap for all skills
 
+// TEST MODE: Limit number of skills to download (0 = no limit)
+const SKILL_LIMIT = process.env.SKILL_LIMIT ? parseInt(process.env.SKILL_LIMIT) : 0;
+
 // ANSI colors for pretty output
 const colors = {
   reset: '\x1b[0m',
@@ -132,6 +135,13 @@ if (skillSlugs.length === 0) {
 
 log.success(`Found ${skillSlugs.length} skills\n`);
 
+// Apply limit if set (for testing)
+let skillsToDownload = skillSlugs;
+if (SKILL_LIMIT > 0 && SKILL_LIMIT < skillSlugs.length) {
+  skillsToDownload = skillSlugs.slice(0, SKILL_LIMIT);
+  log.warn(`TEST MODE: Limiting to first ${SKILL_LIMIT} skills\n`);
+}
+
 // Download each skill safely
 const results = {
   fetchedAt: new Date().toISOString(),
@@ -146,9 +156,9 @@ let failedCount = 0;
 let skippedCount = 0;
 let totalSizeBytes = 0;
 
-for (let i = 0; i < skillSlugs.length; i++) {
-  const slug = skillSlugs[i];
-  const progress = `[${i + 1}/${skillSlugs.length}]`;
+for (let i = 0; i < skillsToDownload.length; i++) {
+  const slug = skillsToDownload[i];
+  const progress = `[${i + 1}/${skillsToDownload.length}]`;
   
   log.info(`${progress} Downloading: ${slug}`);
   
