@@ -1,26 +1,126 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Accessible color palette - WCAG AA compliant */
+  --bg-primary: #0f1419;
+  --bg-card: #1a2332;
+  --bg-hover: #243447;
+  
+  --text-primary: #e6edf3;
+  --text-secondary: #adbac7;
+  --text-muted: #768390;
+  
+  --link-primary: #58a6ff;
+  --link-hover: #79c0ff;
+  
+  --border-subtle: #30363d;
+  --border-medium: #444c56;
+  
+  --severity-high: #da3633;
+  --severity-high-border: #f85149;
+  --severity-medium: #e09b13;
+  --severity-medium-border: #f2cc60;
+  --severity-low: #388bfd;
+  --severity-low-border: #58a6ff;
+  --severity-clean: #238636;
+  --severity-clean-border: #2ea043;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Focus styles for accessibility */
+*:focus-visible {
+  outline: 2px solid var(--link-primary);
+  outline-offset: 2px;
+}
+
+/* Skip to main content link for keyboard users */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--link-primary);
+  color: white;
+  padding: 8px 16px;
+  text-decoration: none;
+  z-index: 100;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* Improve link accessibility */
+a {
+  color: var(--link-primary);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+a:hover {
+  color: var(--link-hover);
+  text-decoration: underline;
+}
+
+a:focus-visible {
+  outline: 2px solid var(--link-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Ensure minimum touch target size (44x44px) */
+button, a {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Table accessibility */
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th {
+  text-align: left;
+  font-weight: 600;
+}
+
+/* Card hover states */
+.card-hover {
+  transition: border-color 0.15s ease;
+}
+
+.card-hover:hover {
+  border-color: var(--border-medium);
+}
+
+/* Screen reader only text */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
