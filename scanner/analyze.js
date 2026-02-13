@@ -7,6 +7,10 @@
  * SECURITY: Static analysis only - reads files as text, never executes
  */
 
+// Load environment variables from .env file
+import { config } from 'dotenv';
+config();
+
 import { readFileSync, readdirSync, writeFileSync, mkdirSync, statSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -244,61 +248,74 @@ function buildPrompt(slug, skillMdContent, allFiles) {
   return prompt;
 }
 
-// Helper: Analyze with Opus 4.6
+// Helper: Analyze with Opus 4.6 via direct API call
 async function analyzeWithOpus(prompt) {
-  // Write prompt to temp file for spawn
-  const tmpPromptFile = `/tmp/sketchyskills-prompt-${Date.now()}.txt`;
-  writeFileSync(tmpPromptFile, prompt);
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error('ANTHROPIC_API_KEY not set. Create .env file with your key.');
+  }
   
   try {
-    // Use OpenClaw CLI to spawn Opus session
-    // This handles authentication automatically
-    const spawnCmd = `openclaw sessions spawn \
-      --agent main \
-      --model anthropic/claude-opus-4-6 \
-      --task "$(cat ${tmpPromptFile})" \
-      --cleanup delete \
-      --timeout-seconds 180`;
+    // Call Anthropic API directly
+    const requestBody = {
+      model: 'claude-opus-4-6',
+      max_tokens: 2048,
+      messages: [{
+        role: 'user',
+        content: prompt
+      }]
+    };
     
-    const response = execSync(spawnCmd, {
+    // Write request to temp file (safer than shell escaping)
+    const tmpReqFile = `/tmp/sketchyskills-req-${Date.now()}.json`;
+    writeFileSync(tmpReqFile, JSON.stringify(requestBody));
+    
+    const curlCmd = `curl -s https://api.anthropic.com/v1/messages \
+      -H "x-api-key: ${apiKey}" \
+      -H "anthropic-version: 2023-06-01" \
+      -H "content-type: application/json" \
+      -d @${tmpReqFile}`;
+    
+    const response = execSync(curlCmd, {
       encoding: 'utf8',
-      maxBuffer: 10 * 1024 * 1024, // 10MB buffer
-      timeout: 200000, // 200s (spawn timeout + buffer)
-      cwd: join(process.env.HOME, '.openclaw')
+      maxBuffer: 10 * 1024 * 1024,
+      timeout: 120000 // 2 min
     });
     
-    // Parse response - sessions_spawn returns the agent's reply
-    // Opus should return pure JSON
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    // Clean up temp file
+    try {
+      execSync(`rm -f ${tmpReqFile}`);
+    } catch (e) {
+      // Ignore
+    }
+    
+    const apiResponse = JSON.parse(response);
+    
+    if (apiResponse.error) {
+      throw new Error(`API Error: ${apiResponse.error.message}`);
+    }
+    
+    // Extract text from response
+    const textContent = apiResponse.content[0].text;
+    
+    // Parse JSON from Opus response
+    const jsonMatch = textContent.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      log.debug(`  Raw Opus response: ${response.substring(0, 500)}`);
+      log.debug(`  Opus returned: ${textContent.substring(0, 300)}`);
       throw new Error('No JSON found in Opus response');
     }
     
     const analysis = JSON.parse(jsonMatch[0]);
     
-    // Validate response structure
+    // Validate structure
     if (typeof analysis.sketchyScore !== 'number' || !analysis.severity) {
       throw new Error('Invalid analysis format from Opus');
-    }
-    
-    // Clean up temp file
-    try {
-      execSync(`rm -f ${tmpPromptFile}`);
-    } catch (e) {
-      // Ignore cleanup errors
     }
     
     return analysis;
     
   } catch (err) {
-    // Clean up temp file on error
-    try {
-      execSync(`rm -f ${tmpPromptFile}`);
-    } catch (e) {
-      // Ignore cleanup errors
-    }
-    
     throw new Error(`Opus analysis failed: ${err.message}`);
   }
 }
