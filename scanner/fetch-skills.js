@@ -18,7 +18,7 @@ const __dirname = dirname(__filename);
 // SECURITY: Isolated directory for untrusted downloads
 const DATA_DIR = join(__dirname, '..', 'data', 'raw');
 const WORKDIR = join(__dirname, '..', 'scanner-data');
-const SKILLS_DIR = join(WORKDIR, 'skills');
+// Note: ClawHub creates 'skills/' subdirectory automatically
 
 // SECURITY: Size and timeout limits
 const MAX_SKILL_SIZE_MB = 10;
@@ -57,7 +57,7 @@ log.success('Isolated directories ready\n');
 
 // SECURITY: Check ClawHub CLI is installed
 try {
-  const version = execSync('clawhub --version', { 
+  const version = execSync('/opt/homebrew/bin/clawhub -V', { 
     stdio: 'pipe',
     encoding: 'utf8'
   }).trim();
@@ -70,7 +70,7 @@ try {
 
 // SECURITY: Check auth status
 try {
-  const whoami = execSync('clawhub whoami', {
+  const whoami = execSync('/opt/homebrew/bin/clawhub whoami', {
     stdio: 'pipe',
     encoding: 'utf8',
     timeout: 5000
@@ -83,6 +83,7 @@ try {
 }
 
 // SECURITY: Clean up previous downloads (paranoia)
+const SKILLS_DIR = join(WORKDIR, 'skills');
 if (existsSync(SKILLS_DIR)) {
   log.info('Cleaning previous downloads...');
   rmSync(SKILLS_DIR, { recursive: true, force: true });
@@ -90,37 +91,37 @@ if (existsSync(SKILLS_DIR)) {
 }
 
 // Fetch skill list from ClawHub
-log.info('Searching ClawHub for all skills...');
+log.info('Fetching latest skills from ClawHub...');
 
 let searchOutput;
 try {
-  // Search with broad query to get all skills
+  // Use explore to get latest skills
   // TODO: Handle pagination if >100 results
-  searchOutput = execSync('clawhub search "" --limit 100', {
+  searchOutput = execSync('/opt/homebrew/bin/clawhub explore --limit 100', {
     encoding: 'utf8',
     cwd: WORKDIR,
     timeout: 30000,
     maxBuffer: 5 * 1024 * 1024 // 5MB buffer
   });
 } catch (err) {
-  log.error('Failed to search ClawHub:');
+  log.error('Failed to fetch from ClawHub:');
   console.error(err.message);
   process.exit(1);
 }
 
-// Parse skill slugs from search output
-// ClawHub search output format (example):
-// username/skill-name - Description here
-// another-user/another-skill - Another description
+// Parse skill slugs from explore output
+// ClawHub explore output format (example):
+// skill-name  v1.0.0  1m ago  Description here...
+// another-skill  v2.0.1  5m ago  Another description...
 const skillSlugs = [];
 const lines = searchOutput.split('\n');
 
 for (const line of lines) {
   const trimmed = line.trim();
-  if (!trimmed || trimmed.startsWith('Found') || trimmed.startsWith('Search')) continue;
+  if (!trimmed || trimmed.startsWith('-') || trimmed.startsWith('Fetching')) continue;
   
-  // Extract slug (format: "username/skill-name - description")
-  const match = trimmed.match(/^([a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+)/);
+  // Extract slug (first word before version)
+  const match = trimmed.match(/^([a-zA-Z0-9_-]+)\s+v/);
   if (match) {
     skillSlugs.push(match[1]);
   }
@@ -164,15 +165,14 @@ for (let i = 0; i < skillsToDownload.length; i++) {
   
   try {
     // SECURITY: Download with timeout and size limits
-    execSync(`clawhub install "${slug}" --force --no-input`, {
-      cwd: WORKDIR,
+    execSync(`/opt/homebrew/bin/clawhub install "${slug}" --force --no-input --workdir "${WORKDIR}"`, {
       stdio: 'pipe',
       timeout: DOWNLOAD_TIMEOUT_SEC * 1000,
       maxBuffer: MAX_SKILL_SIZE_MB * 1024 * 1024
     });
     
-    // SECURITY: Check downloaded size
-    const skillPath = join(SKILLS_DIR, slug);
+    // SECURITY: Check downloaded size (ClawHub creates skills/ under workdir)
+    const skillPath = join(WORKDIR, 'skills', slug);
     if (!existsSync(skillPath)) {
       throw new Error('Skill directory not created after install');
     }
