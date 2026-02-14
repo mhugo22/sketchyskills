@@ -157,20 +157,68 @@ let failedCount = 0;
 let skippedCount = 0;
 let totalSizeBytes = 0;
 
+// Helper: Download with retry logic
+function downloadSkillWithRetry(slug, maxRetries = 5) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // SECURITY: Download with timeout and size limits
+      execSync(`/opt/homebrew/bin/clawhub install "${slug}" --force --no-input --workdir "${WORKDIR}"`, {
+        stdio: 'pipe',
+        timeout: DOWNLOAD_TIMEOUT_SEC * 1000,
+        maxBuffer: MAX_SKILL_SIZE_MB * 1024 * 1024
+      });
+      
+      // Success - exit retry loop
+      return { success: true };
+      
+    } catch (err) {
+      const isRateLimit = err.message.includes('Rate limit exceeded');
+      
+      if (attempt < maxRetries && isRateLimit) {
+        // Exponential backoff: 2s, 4s, 8s, 16s, 32s
+        const delaySec = Math.pow(2, attempt);
+        log.debug(`  Retry ${attempt}/${maxRetries} in ${delaySec}s...`);
+        execSync(`sleep ${delaySec}`);
+        continue;
+      }
+      
+      // Final failure
+      return { success: false, error: err.message };
+    }
+  }
+  
+  return { success: false, error: 'Max retries exceeded' };
+}
+
 for (let i = 0; i < skillsToDownload.length; i++) {
   const slug = skillsToDownload[i];
   const progress = `[${i + 1}/${skillsToDownload.length}]`;
   
   log.info(`${progress} Downloading: ${slug}`);
   
-  try {
-    // SECURITY: Download with timeout and size limits
-    execSync(`/opt/homebrew/bin/clawhub install "${slug}" --force --no-input --workdir "${WORKDIR}"`, {
-      stdio: 'pipe',
-      timeout: DOWNLOAD_TIMEOUT_SEC * 1000,
-      maxBuffer: MAX_SKILL_SIZE_MB * 1024 * 1024
-    });
+  // Try download with retries
+  const result = downloadSkillWithRetry(slug);
+  
+  if (!result.success) {
+    log.error(`${progress} Failed: ${slug}`);
+    log.debug(`Error: ${result.error}`);
     
+    results.failed.push({
+      slug,
+      error: result.error,
+      timeout: result.error.includes('ETIMEDOUT') || result.error.includes('timeout')
+    });
+    failedCount++;
+    
+    // Rate limiting: Wait 2 seconds before next skill
+    if (i < skillsToDownload.length - 1) {
+      execSync('sleep 2');
+    }
+    continue;
+  }
+  
+  // Download succeeded - verify and process
+  try {
     // SECURITY: Check downloaded size (ClawHub creates skills/ under workdir)
     const skillPath = join(WORKDIR, 'skills', slug);
     if (!existsSync(skillPath)) {
@@ -191,6 +239,11 @@ for (let i = 0; i < skillsToDownload.length; i++) {
         sizeMB: parseFloat(sizeMB)
       });
       skippedCount++;
+      
+      // Rate limiting: Wait 2 seconds before next skill
+      if (i < skillsToDownload.length - 1) {
+        execSync('sleep 2');
+      }
       continue;
     }
     
@@ -218,20 +271,20 @@ for (let i = 0; i < skillsToDownload.length; i++) {
     downloadedCount++;
     
   } catch (err) {
-    log.error(`${progress} Failed: ${slug}`);
+    log.error(`${progress} Verification failed: ${slug}`);
     log.debug(`Error: ${err.message}`);
     
     results.failed.push({
       slug,
-      error: err.message,
-      timeout: err.message.includes('ETIMEDOUT') || err.message.includes('timeout')
+      error: `Verification: ${err.message}`,
+      timeout: false
     });
     failedCount++;
   }
   
-  // Rate limiting: Wait 1 second between downloads to avoid ClawHub rate limits
+  // Rate limiting: Wait 2 seconds between downloads to avoid ClawHub rate limits
   if (i < skillsToDownload.length - 1) {
-    execSync('sleep 1');
+    execSync('sleep 2');
   }
 }
 
