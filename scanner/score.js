@@ -13,7 +13,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const RESULTS_DIR = join(__dirname, '..', 'data', 'results');
-const PUBLIC_DIR = join(__dirname, '..', 'dashboard', 'public', 'data');
+const PUBLIC_DIR = join(__dirname, '..', 'public', 'data');
 
 // ANSI colors
 const colors = {
