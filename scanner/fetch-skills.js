@@ -228,6 +228,11 @@ for (let i = 0; i < skillsToDownload.length; i++) {
     });
     failedCount++;
   }
+  
+  // Rate limiting: Wait 1 second between downloads to avoid ClawHub rate limits
+  if (i < skillsToDownload.length - 1) {
+    execSync('sleep 1');
+  }
 }
 
 // Save metadata

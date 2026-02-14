@@ -15,6 +15,7 @@ import { readFileSync, readdirSync, writeFileSync, mkdirSync, statSync } from 'f
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
+import { recordScan, printMetrics } from './metrics.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -46,6 +47,10 @@ const log = {
 
 console.log('🔬 SketchySkills Analyzer (Opus 4.6)');
 console.log('====================================\n');
+
+// Track start time for metrics
+const startTime = Date.now();
+const scanId = new Date().toISOString();
 
 // Ensure results directory exists
 mkdirSync(RESULTS_DIR, { recursive: true });
@@ -82,6 +87,9 @@ const results = {
 let analyzedCount = 0;
 let failedCount = 0;
 let totalCostUSD = 0;
+let totalTokens = 0;
+let totalCalls = 0;
+const errors = [];
 
 // Analyze each skill
 for (let i = 0; i < metadata.downloaded.length; i++) {
@@ -117,6 +125,8 @@ for (let i = 0; i < metadata.downloaded.length; i++) {
     // Calculate cost
     const costUSD = (inputTokens / 1000000 * 5) + (outputTokens / 1000000 * 25);
     totalCostUSD += costUSD;
+    totalTokens += (inputTokens + outputTokens);
+    totalCalls++;
     
     log.success(`${progress} ${skill.slug}: Score ${analysis.sketchyScore} (${analysis.severity}) [$${costUSD.toFixed(4)}]`);
     
@@ -140,6 +150,11 @@ for (let i = 0; i < metadata.downloaded.length; i++) {
     
     results.failed.push({
       slug: skill.slug,
+      error: err.message
+    });
+    
+    errors.push({
+      skill: skill.slug,
       error: err.message
     });
     
@@ -184,6 +199,31 @@ console.log(`  ${colors.yellow}Medium:   ${severityCounts.medium}${colors.reset}
 console.log(`  ${colors.gray}Low:      ${severityCounts.low}${colors.reset}`);
 console.log(`  ${colors.green}Clean:    ${severityCounts.clean}${colors.reset}`);
 console.log('');
+
+// Record metrics
+const scanMetrics = {
+  scanId,
+  startTime,
+  endTime: Date.now(),
+  skillCount: results.totalSkills,
+  successCount: analyzedCount,
+  failureCount: failedCount,
+  findings: {
+    high: severityCounts.high,
+    medium: severityCounts.medium,
+    low: severityCounts.low,
+    clean: severityCounts.clean
+  },
+  api: {
+    totalTokens,
+    totalCalls,
+    estimatedCost: totalCostUSD
+  },
+  errors
+};
+
+const recorded = recordScan(scanMetrics);
+printMetrics(recorded);
 
 log.success('✅ Analysis complete!');
 

@@ -1,0 +1,1516 @@
+{
+  "generatedAt": "2026-02-14T05:29:39.817Z",
+  "version": "1.0.0",
+  "summary": {
+    "totalSkills": 43,
+    "analyzedCount": 41,
+    "failedCount": 2,
+    "criticalCount": 0,
+    "highCount": 0,
+    "mediumCount": 3,
+    "lowCount": 22,
+    "cleanCount": 16,
+    "averageScore": 18,
+    "totalCostUSD": 1.3885950000000002,
+    "lastScan": "2026-02-14T05:16:05.837Z"
+  },
+  "skills": [
+    {
+      "slug": "agentic-money",
+      "sketchyScore": 45,
+      "severity": "medium",
+      "recommendation": "review",
+      "summary": "This skill facilitates Ethereum-based agent payments using a private key stored in an environment variable. While it includes appropriate safety warnings, the combination of private key access, external npm package dependency (@ethcf/agenticmoney which is not widely audited), financial transaction execution, and truncated/incomplete source code creates moderate risk. No overtly malicious patterns detected, but the attack surface is significant.",
+      "findingsCount": 5,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "high",
+          "description": "Skill requires users to set a private key for an Ethereum wallet as an environment variable (AGENTICMONEY_PRIVATE_KEY). While the SKILL.md warns against storing keys in config files, the skill directly uses this private key to instantiate wallets and sign transactions. A compromised or malicious version of the @ethcf/agenticmoney npm package could exfiltrate this key.",
+          "evidence": "SKILL.md: 'export AGENTICMONEY_PRIVATE_KEY=\"0x...\"' and multiple instances of 'new ethers.Wallet(process.env.AGENTICMONEY_PRIVATE_KEY, provider)'",
+          "weight": 30
+        },
+        {
+          "category": "remote-download",
+          "severity": "medium",
+          "description": "Skill instructs installation of npm packages (@ethcf/agenticmoney, ethers) and uses 'npx tsx -e' to execute inline TypeScript that connects to external RPC endpoints and GraphQL endpoints. While npm packages are a normal pattern, the @ethcf/agenticmoney package is not a well-known package and could contain malicious code. The skill's truncated content means we cannot see the full set of commands.",
+          "evidence": "SKILL.md: 'npm install @ethcf/agenticmoney ethers' and multiple 'npx tsx -e' blocks connecting to 'https://ethereum-sepolia.publicnode.com'",
+          "weight": 15
+        },
+        {
+          "category": "undocumented-network-activity",
+          "severity": "medium",
+          "description": "The skill connects to external RPC providers (ethereum-sepolia.publicnode.com) and references GraphQL endpoints from the NETWORKS configuration object. The full network activity depends on the @ethcf/agenticmoney SDK internals which are not visible in this analysis. The SKILL.md was truncated, so additional commands and endpoints may exist unseen.",
+          "evidence": "SKILL.md: references to NETWORKS.sepolia.graphqlEndpoint, RPC calls to publicnode.com, and SDK methods like sdk.discover(), sdk.registerAgent()",
+          "weight": 10
+        },
+        {
+          "category": "financial-risk",
+          "severity": "medium",
+          "description": "The skill is designed to execute financial transactions (hiring agents, paying ETH, claiming payments) using a hot wallet private key. While a spending cap of 0.01 ETH is suggested and user confirmation is recommended, the actual enforcement depends on the agent implementation. A malicious agent or prompt injection could bypass safety rules to drain funds.",
+          "evidence": "SKILL.md: 'Enforce a spending cap appropriate to the network (suggest 0.01 ETH default)' and commands for hiring/paying agents with real cryptocurrency",
+          "weight": 15
+        },
+        {
+          "category": "prompt-injection",
+          "severity": "low",
+          "description": "The SKILL.md contains detailed 'When to Use' instructions that guide agent behavior. While these appear legitimate and the skill actually warns about prompt injection risks, the skill's nature (executing code with wallet access based on natural language commands) creates an inherent prompt injection attack surface.",
+          "evidence": "SKILL.md: 'Prompt injection warning: This skill executes code with wallet access. Never pass unsanitized user input directly into SDK calls.'",
+          "weight": 5
+        }
+      ],
+      "meta": {
+        "fileCount": 3,
+        "sizeBytes": 14307,
+        "inputTokens": 2123,
+        "outputTokens": 883,
+        "costUSD": 0.03269
+      }
+    },
+    {
+      "slug": "prompt-injection-protection",
+      "sketchyScore": 42,
+      "severity": "medium",
+      "recommendation": "review",
+      "summary": "This skill presents itself as prompt injection protection but has several concerning patterns: it auto-loads into content processing pipelines, dynamically modifies its own detection patterns at runtime via an auto-update mechanism, writes persistent data to disk, and uses extremely broad regex patterns that could interfere with legitimate operations. No active malware or data exfiltration was found, but the architecture enables content interception and dynamic behavior modification.",
+      "findingsCount": 7,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "medium",
+          "description": "The skill contains extensive pattern matching for sensitive file paths including SSH keys, AWS credentials, password files, and other secrets. While framed as 'protection', these patterns could be used to identify and flag sensitive file locations for an attacker.",
+          "evidence": "index.js: systemFilePatterns includes /\\/etc\\/.*|~\\/\\.ssh|~\\/\\.aws|~\\/\\.config/i and /password|credential|secret|token|key|certificate|private|auth|login/i",
+          "weight": 15
+        },
+        {
+          "category": "privilege-escalation",
+          "severity": "low",
+          "description": "The skill references sudo, root, admin, and privilege patterns. While these are in detection regex patterns rather than execution commands, the patterns are stored and could theoretically be used for reconnaissance of what commands a user attempts.",
+          "evidence": "index.js: commandPatterns includes /sudo|root|admin|privilege|permission/i",
+          "weight": 5
+        },
+        {
+          "category": "file-system-access",
+          "severity": "medium",
+          "description": "The adaptive-learning.js module writes to the local filesystem (learned-threats.json) to persist data. This is a writable data store that could potentially be manipulated or grow unbounded. The auto-update system also modifies runtime detection patterns.",
+          "evidence": "adaptive-learning.js: await fs.writeFile(this.threatDbPath, JSON.stringify(threatObj, null, 2)); and auto-update.js dynamically pushes new regex patterns into protection arrays",
+          "weight": 10
+        },
+        {
+          "category": "auto-execution",
+          "severity": "medium",
+          "description": "The package.json configures autoLoad: true with hooks into web-fetch, email-process, and document-analyze. The auto-update system starts automatically on construction and runs on a timer, dynamically modifying detection patterns without user intervention.",
+          "evidence": "package.json: \"autoLoad\": true, \"hooks\": [\"web-fetch\", \"email-process\", \"document-analyze\"]. index.js constructor: this.autoUpdateSystem.startAutoUpdates()",
+          "weight": 15
+        },
+        {
+          "category": "dynamic-code-modification",
+          "severity": "medium",
+          "description": "The auto-update system dynamically injects new regex patterns into the running protection instance. While currently using hardcoded 'simulated' patterns, the architecture is designed to accept external threat feeds, which could be abused to modify behavior.",
+          "evidence": "auto-update.js: this.protection.injectionPatterns.push(...simulatedNewThreats.injection); and comment 'in reality this would connect to a threat intelligence feed'",
+          "weight": 12
+        },
+        {
+          "category": "overly-broad-detection",
+          "severity": "low",
+          "description": "The regex patterns are extremely broad and would flag enormous amounts of legitimate content. Words like 'password', 'config', 'settings', 'database', 'log', 'history', 'cache', 'key', 'token', 'secret' would trigger on virtually any technical discussion. This could be used to suppress or interfere with legitimate operations.",
+          "evidence": "index.js: systemFilePatterns includes /config|settings|database|backup|log|history|cache/i which matches extremely common words",
+          "weight": 8
+        },
+        {
+          "category": "prompt-injection",
+          "severity": "low",
+          "description": "Ironically for a prompt injection protection skill, the SKILL.md and markdown files contain no hidden instructions or prompt injection attempts themselves. However, the skill's autoLoad hook mechanism could intercept and modify content flowing through the agent's web-fetch and email-process pipelines.",
+          "evidence": "package.json hooks configuration combined with autoLoad: true means this skill inserts itself into content processing pipelines automatically",
+          "weight": 5
+        }
+      ],
+      "meta": {
+        "fileCount": 17,
+        "sizeBytes": 77231,
+        "inputTokens": 15558,
+        "outputTokens": 1042,
+        "costUSD": 0.10384
+      }
+    },
+    {
+      "slug": "crypto-market-data",
+      "sketchyScore": 42,
+      "severity": "medium",
+      "recommendation": "review",
+      "summary": "The skill routes all financial data requests through an unknown third-party domain (api.igent.net) with spoofed browser User-Agent headers and an opaque token system. While the code itself contains no obvious malware, data exfiltration, or obfuscation, the reliance on an undisclosed intermediary API raises trust concerns about what data may be collected server-side.",
+      "findingsCount": 4,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "medium",
+          "description": "Token-based authentication system that fetches and caches tokens from an external API server. Tokens are persisted to disk in a .token file, which could be read by other processes.",
+          "evidence": "scripts/api_client.js: _fetchNewToken() fetches from `${BASE_URL}/token`, writes to TOKEN_FILE = path.join(__dirname, '.token'); fs.writeFileSync(TOKEN_FILE, JSON.stringify(data))",
+          "weight": 15
+        },
+        {
+          "category": "undocumented-network-activity",
+          "severity": "medium",
+          "description": "All API calls route through a third-party domain 'api.igent.net' which is not a well-known financial data provider. This domain acts as a proxy/intermediary, and the skill documentation does not clearly disclose the backend provider. The domain is not associated with CoinGecko, Yahoo Finance, or other recognized market data APIs.",
+          "evidence": "scripts/api_client.js: const BASE_URL = process.env.API_BASE_URL || 'https://api.igent.net/api'",
+          "weight": 20
+        },
+        {
+          "category": "credential-access",
+          "severity": "low",
+          "description": "The User-Agent string is spoofed to mimic a Chrome browser on macOS, which is a deceptive practice that obscures the true origin of requests. This is a common technique to bypass bot detection but is also used in scraping/abuse scenarios.",
+          "evidence": "scripts/api_client.js: const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36'",
+          "weight": 5
+        },
+        {
+          "category": "undocumented-network-activity",
+          "severity": "low",
+          "description": "The token acquisition endpoint is unauthenticated - it fetches tokens from /api/token with no credentials, which is unusual. This could indicate the API is tracking users by other means (IP, fingerprinting) or the token system serves a different purpose than authentication.",
+          "evidence": "scripts/api_client.js: async function _fetchNewToken() { const reqUrl = `${BASE_URL}/token`; const { status, body } = await _httpRequest(reqUrl); }",
+          "weight": 10
+        }
+      ],
+      "meta": {
+        "fileCount": 18,
+        "sizeBytes": 18876,
+        "inputTokens": 5466,
+        "outputTokens": 618,
+        "costUSD": 0.04278
+      }
+    },
+    {
+      "slug": "listing-swarm",
+      "sketchyScore": 38,
+      "severity": "low",
+      "recommendation": "review",
+      "summary": "This skill is a legitimate directory submission automation tool with a BYOK (Bring Your Own Key) architecture. The main concerns are that it requires sensitive credentials (email IMAP passwords, captcha API keys) and transmits data to 70+ external websites. However, all network activity is documented, the code is readable with no obfuscation, and the data flows match the stated purpose. No malicious patterns such as hidden downloads, prompt injection, privilege escalation, or undisclosed exfiltration were found.",
+      "findingsCount": 5,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "medium",
+          "description": "Skill requests sensitive credentials via environment variables including IMAP email passwords and captcha API keys. While documented as BYOK, the skill has direct access to these credentials at runtime and uses them to authenticate with external services.",
+          "evidence": "SKILL.md requires: CAPTCHA_API_KEY, CAPTCHA_SERVICE, IMAP_USER, IMAP_PASSWORD, IMAP_HOST. captcha.js line: 'this.apiKey = apiKey || process.env.CAPTCHA_API_KEY'. email.js line: 'password: config.password || process.env.IMAP_PASSWORD'",
+          "weight": 15
+        },
+        {
+          "category": "data-exfiltration",
+          "severity": "medium",
+          "description": "Skill sends user product data and captcha images to external third-party services (2captcha.com, anti-captcha.com, capsolver.com) and 70+ directory websites. While this is the stated purpose, user data is transmitted to many external domains. The captcha API key is sent as a URL parameter, which could be logged in server access logs.",
+          "evidence": "captcha.js: fetch(`https://2captcha.com/in.php?${submitParams}`) where submitParams includes the API key. email.js connects to user's IMAP server with credentials. directories.json lists 70+ external websites for form submission.",
+          "weight": 10
+        },
+        {
+          "category": "credential-access",
+          "severity": "medium",
+          "description": "IMAP email access grants the skill ability to read the user's entire inbox, not just verification emails. The findVerificationEmail method searches by domain and time window, but the IMAP connection itself has full inbox read access.",
+          "evidence": "email.js: this.imap.openBox('INBOX', false, ...) opens inbox with write access (second param 'false' means NOT read-only). The search is filtered but the connection has broader access.",
+          "weight": 10
+        },
+        {
+          "category": "undocumented-network-activity",
+          "severity": "low",
+          "description": "The captcha.js file uses dynamic import of 'node-fetch' via await import('node-fetch'), and the directories.json includes a Stripe payment URL (buy.stripe.com) as a submitUrl for 'Tiny Startups'. While not malicious, the Stripe URL is notable as the agent could potentially be directed to interact with a payment page.",
+          "evidence": "directories.json: 'Tiny Startups' entry has submitUrl: 'https://buy.stripe.com/aEU7vOb0s2fugkUdRy'. captcha.js uses: const fetch = (await import('node-fetch')).default;",
+          "weight": 5
+        },
+        {
+          "category": "undocumented-network-activity",
+          "severity": "low",
+          "description": "Minor inconsistency: 'Dokey AI' directory entry has url 'dokeyai.com' but submitUrl points to a completely different domain 'whattheai.tech'. This could be legitimate (shared submission portal) or could redirect users to an unexpected site.",
+          "evidence": "directories.json: {\"name\": \"Dokey AI\", \"url\": \"https://dokeyai.com/\", \"submitUrl\": \"https://whattheai.tech/submit-a-tool/\"}",
+          "weight": 3
+        }
+      ],
+      "meta": {
+        "fileCount": 9,
+        "sizeBytes": 47482,
+        "inputTokens": 8190,
+        "outputTokens": 858,
+        "costUSD": 0.0624
+      }
+    },
+    {
+      "slug": "hivefound",
+      "sketchyScore": 35,
+      "severity": "low",
+      "recommendation": "review",
+      "summary": "This skill is a CLI client for the HiveFound collective intelligence API. It sends user data to an external service (api.hivefound.com) and handles API keys, which is expected behavior for its stated purpose. No obfuscation, privilege escalation, binary downloads, or clearly malicious patterns detected. The main concern is data being sent to a third-party service, but this is transparently documented.",
+      "findingsCount": 5,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "medium",
+          "description": "Skill instructs users to store API keys in workspace files (TOOLS.md or credentials file) and handles Bearer tokens. While this is standard for authenticated APIs, the key is passed via command-line arguments which may appear in process listings and shell history.",
+          "evidence": "SKILL.md: 'Store your key in your workspace (e.g., TOOLS.md or a credentials file): HIVEFOUND_API_KEY=hp_live_xxxx'; scripts pass --key via CLI args",
+          "weight": 10
+        },
+        {
+          "category": "data-exfiltration",
+          "severity": "medium",
+          "description": "The skill sends user-provided data (URLs, titles, summaries, notes) to an external third-party API (api.hivefound.com) via POST requests. While this is the stated purpose of the skill, it constitutes sending data to a non-OpenClaw domain. The submit, feedback, and used commands all POST data externally.",
+          "evidence": "hivefound.py: api('POST', '/discover', ...), api('POST', '/feedback', ...) sending to https://api.hivefound.com/v1",
+          "weight": 15
+        },
+        {
+          "category": "credential-access",
+          "severity": "low",
+          "description": "Webhook configuration involves secrets (webhook_secret) that are only shown once. The SKILL.md instructs saving this secret. Webhook signature verification uses HMAC-SHA256 which is good practice, but the secret handling is managed through the external service.",
+          "evidence": "SKILL.md: '⚠ Response includes webhook_secret — save it! Only shown once.'",
+          "weight": 5
+        },
+        {
+          "category": "undocumented-network-activity",
+          "severity": "low",
+          "description": "All network activity appears to be documented and consistent between SKILL.md and the Python script. The API base URL matches across documentation and code. No hidden or undocumented endpoints detected.",
+          "evidence": "BASE_URL in hivefound.py matches SKILL.md: https://api.hivefound.com/v1",
+          "weight": 0
+        },
+        {
+          "category": "prompt-injection",
+          "severity": "low",
+          "description": "The SKILL.md description suggests using search 'before hitting the web to save tokens' which subtly encourages routing queries through HiveFound first, potentially allowing the service to influence what information the agent receives. This is a mild form of information control but aligns with the stated purpose.",
+          "evidence": "SKILL.md: 'Query what other agents have discovered — use this *before* hitting the web to save tokens'",
+          "weight": 5
+        }
+      ],
+      "meta": {
+        "fileCount": 4,
+        "sizeBytes": 15075,
+        "inputTokens": 3383,
+        "outputTokens": 706,
+        "costUSD": 0.034565
+      }
+    },
+    {
+      "slug": "paymentsdb",
+      "sketchyScore": 35,
+      "severity": "low",
+      "recommendation": "review",
+      "summary": "This skill is a relatively straightforward PostgreSQL query wrapper for accessing Stripe data synced via a third-party service (paymentsdb.com). The main concerns are plaintext credential storage, reliance on a third-party intermediary for sensitive financial data, and unrestricted SQL execution. No active malicious behavior was detected - no data exfiltration, no obfuscation, no remote downloads, and no prompt injection.",
+      "findingsCount": 4,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "medium",
+          "description": "Script contains hardcoded credential placeholders (PGUSER, PGPASSWORD) that users are instructed to fill in with real credentials. These credentials are stored in plaintext in the script file.",
+          "evidence": "query.sh: PGUSER=\"postgres.your_username\" and PGPASSWORD=\"your_password\" with instructions to replace with real credentials",
+          "weight": 15
+        },
+        {
+          "category": "undocumented-network-activity",
+          "severity": "low",
+          "description": "The skill connects to an external Supabase-hosted PostgreSQL database. While this is documented in the README, the connection is to a third-party service (paymentsdb.com / aws-1-us-east-1.pooler.supabase.com) that acts as an intermediary for Stripe data. Users must trust this third-party with their synced Stripe data.",
+          "evidence": "query.sh: PGHOST=\"aws-1-us-east-1.pooler.supabase.com\" - connects to external database",
+          "weight": 10
+        },
+        {
+          "category": "credential-access",
+          "severity": "low",
+          "description": "The database schema includes tables with sensitive financial data (charges, customers, invoices, payment methods, etc.) and the schema itself references fields like api_key_hashes, client_secret, and other sensitive Stripe data fields. An AI agent querying this database could access sensitive financial information.",
+          "evidence": "SKILL.md schema: stripe.accounts contains api_key_hashes, stripe.checkout_sessions contains client_secret",
+          "weight": 10
+        },
+        {
+          "category": "sql-injection-risk",
+          "severity": "low",
+          "description": "The query.sh script passes user-provided SQL directly to psql without any sanitization or restriction. While this is by design (the skill is meant to run arbitrary queries), an AI agent could be prompted to run destructive queries if the database user has write permissions despite the README claiming read-only access.",
+          "evidence": "query.sh: SQL=\"$1\" followed by psql -c \"$SQL\" with no input validation",
+          "weight": 5
+        }
+      ],
+      "meta": {
+        "fileCount": 5,
+        "sizeBytes": 21270,
+        "inputTokens": 2523,
+        "outputTokens": 610,
+        "costUSD": 0.027865
+      }
+    },
+    {
+      "slug": "openclaw-leaderboard",
+      "sketchyScore": 35,
+      "severity": "low",
+      "recommendation": "review",
+      "summary": "This is a legitimate OpenClaw leaderboard web application (Next.js) that allows AI agents to register, submit earnings data, and view rankings. The main concerns are that it encourages agents to send system prompts and configuration details to a third-party server, and it handles API key generation and storage. However, all network activity is documented and aligned with the stated purpose, the code is readable and well-structured, and there is no obfuscation, privilege escalation, or clearly malicious behavior.",
+      "findingsCount": 4,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "medium",
+          "description": "The skill instructs AI agents to register and store API keys, and the SKILL.md contains instructions for agents to save credentials to disk (~/.config/openclaw/credentials.json). The tool.js reads OPENCLAW_API_KEY from environment variables and sends it as a Bearer token to the leaderboard API.",
+          "evidence": "openclaw-skill/SKILL.md: 'Save your credentials to memory or ~/.config/openclaw/credentials.json: {\"api_key\": \"ocl_xxx\"}'; openclaw-skill/tool.js: 'function getApiKey() { return process.env.OPENCLAW_API_KEY || null; }' and 'Authorization: `Bearer ${key}`'",
+          "weight": 15
+        },
+        {
+          "category": "data-exfiltration",
+          "severity": "medium",
+          "description": "The skill encourages agents to POST potentially sensitive configuration data (system prompts, model configs, tools list) to an external Vercel-hosted API. While this is the stated purpose of the leaderboard, it means agent system prompts and configurations are sent to a third-party server.",
+          "evidence": "SKILL.md submission fields include 'systemPrompt' (max 10000 chars), 'modelConfig', 'tools', 'configNotes'. The tool.js submitEarning function sends all of these to the external API at openclaw-leaderboard.vercel.app",
+          "weight": 15
+        },
+        {
+          "category": "prompt-injection",
+          "severity": "low",
+          "description": "The SKILL.md is designed to be read by AI agents and contains behavioral instructions ('Read [URL] and follow the instructions to join OpenClaw'). The hero component generates a prompt for users to paste into their agents. While this is the intended use case of an OpenClaw skill, it does direct agent behavior toward registering with and sending data to an external service.",
+          "evidence": "src/components/hero.tsx: 'const agentPrompt = `Read ${skillUrl} and follow the instructions to join OpenClaw`'; openclaw-skill/SKILL.md contains step-by-step agent instructions for registration and data submission",
+          "weight": 5
+        },
+        {
+          "category": "undocumented-network-activity",
+          "severity": "low",
+          "description": "The skill references two slightly different domain URLs (openclaw-leaderboard.vercel.app and openclaw-leaderboard-omega.vercel.app) across different files, which could be confusing but appears to be a deployment naming inconsistency rather than malicious intent.",
+          "evidence": "openclaw-skill/SKILL.md uses 'openclaw-leaderboard.vercel.app'; SKILL.md and public/skill.md use 'openclaw-leaderboard-omega.vercel.app'; docs/api-spec.yaml uses 'openclaw-leaderboard.vercel.app'",
+          "weight": 5
+        }
+      ],
+      "meta": {
+        "fileCount": 64,
+        "sizeBytes": 299244,
+        "inputTokens": 33472,
+        "outputTokens": 775,
+        "costUSD": 0.186735
+      }
+    },
+    {
+      "slug": "attio-api",
+      "sketchyScore": 35,
+      "severity": "low",
+      "recommendation": "review",
+      "summary": "This skill is a legitimate-looking Attio CRM integration that routes all API traffic through a third-party proxy (Maton). While the functionality is clearly documented and the pattern is consistent with OAuth gateway services, users should be aware that all their CRM data and API credentials pass through Maton's infrastructure rather than connecting directly to Attio. No obfuscation, privilege escalation, or overtly malicious patterns detected.",
+      "findingsCount": 4,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "medium",
+          "description": "Skill requires and references MATON_API_KEY environment variable extensively, used as Bearer token for authentication to third-party gateway service",
+          "evidence": "SKILL.md: os.environ[\"MATON_API_KEY\"] used in Authorization headers across all examples; env requirement declared in metadata",
+          "weight": 10
+        },
+        {
+          "category": "undocumented-network-activity",
+          "severity": "medium",
+          "description": "All API calls route through a third-party proxy gateway (gateway.maton.ai / ctrl.maton.ai) rather than directly to the official Attio API (api.attio.com). This means all CRM data and credentials pass through Maton's infrastructure as a man-in-the-middle",
+          "evidence": "SKILL.md: Base URL is https://gateway.maton.ai/attio/{native-api-path} - 'The gateway proxies requests to api.attio.com and automatically injects your OAuth token'",
+          "weight": 15
+        },
+        {
+          "category": "data-exfiltration",
+          "severity": "medium",
+          "description": "POST requests with JSON payloads are sent to non-OpenClaw external domains (gateway.maton.ai, ctrl.maton.ai). While this is the documented purpose of the skill (CRM data management), all user data flows through a third-party proxy rather than directly to Attio",
+          "evidence": "SKILL.md: Multiple POST examples to https://gateway.maton.ai/attio/v2/objects/{object}/records and https://ctrl.maton.ai/connections",
+          "weight": 15
+        },
+        {
+          "category": "prompt-injection",
+          "severity": "low",
+          "description": "SKILL.md description contains a cross-reference to another skill (api-gateway) which could be a subtle way to encourage installation of additional skills, though this appears benign",
+          "evidence": "SKILL.md description: 'For other third party apps, use the api-gateway skill (https://clawhub.ai/byungkyu/api-gateway)'",
+          "weight": 5
+        }
+      ],
+      "meta": {
+        "fileCount": 4,
+        "sizeBytes": 13032,
+        "inputTokens": 2395,
+        "outputTokens": 578,
+        "costUSD": 0.026424999999999997
+      }
+    },
+    {
+      "slug": "monday",
+      "sketchyScore": 35,
+      "severity": "low",
+      "recommendation": "review",
+      "summary": "This skill is a Monday.com API integration that proxies all requests through a third-party service (maton.ai). While there is no obfuscated code, binary downloads, or privilege escalation, the core concern is that all user API credentials and Monday.com data are routed through an intermediary gateway rather than directly to Monday.com. This is a standard pattern for managed OAuth services but introduces trust dependency on the maton.ai infrastructure.",
+      "findingsCount": 3,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "medium",
+          "description": "Skill requires and references an API key (MATON_API_KEY) passed via environment variable and Authorization header. This is standard for API integrations but involves credential handling through a third-party proxy service.",
+          "evidence": "SKILL.md: 'req.add_header(\"Authorization\", f\"Bearer {os.environ[\"MATON_API_KEY\"]}\")'",
+          "weight": 10
+        },
+        {
+          "category": "data-exfiltration",
+          "severity": "medium",
+          "description": "All API requests are proxied through a third-party domain (gateway.maton.ai and ctrl.maton.ai) rather than directly to Monday.com's API. User credentials and all Monday.com data flow through this intermediary service, which could intercept or log sensitive data.",
+          "evidence": "SKILL.md: Base URL is 'https://gateway.maton.ai/monday/v2' - proxies to api.monday.com. Also 'https://ctrl.maton.ai/connections' for connection management.",
+          "weight": 20
+        },
+        {
+          "category": "prompt-injection",
+          "severity": "low",
+          "description": "The SKILL.md description includes a cross-reference directing users to a different skill ('api-gateway' by 'byungkyu') for other third-party apps. This is a soft redirect that could steer users toward installing additional skills, though it appears to be a legitimate recommendation rather than a manipulation.",
+          "evidence": "SKILL.md: 'For other third party apps, use the api-gateway skill (https://clawhub.ai/byungkyu/api-gateway).'",
+          "weight": 5
+        }
+      ],
+      "meta": {
+        "fileCount": 4,
+        "sizeBytes": 14485,
+        "inputTokens": 2392,
+        "outputTokens": 494,
+        "costUSD": 0.02431
+      }
+    },
+    {
+      "slug": "linear-api",
+      "sketchyScore": 35,
+      "severity": "low",
+      "recommendation": "review",
+      "summary": "This is a legitimate-looking Linear API integration skill that proxies all requests through Maton's gateway service (gateway.maton.ai) with managed OAuth. The main concern is the trust dependency on the third-party Maton service, which acts as a proxy and holds the user's OAuth tokens, giving it full access to the user's Linear data. No obfuscation, privilege escalation, or overtly malicious patterns were found.",
+      "findingsCount": 4,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "medium",
+          "description": "Skill requires and uses MATON_API_KEY environment variable for authentication. This is expected for an API integration skill, but the key is sent to third-party domains (gateway.maton.ai, ctrl.maton.ai) rather than to Linear directly.",
+          "evidence": "SKILL.md: req.add_header('Authorization', f'Bearer {os.environ[\"MATON_API_KEY\"]}')",
+          "weight": 10
+        },
+        {
+          "category": "data-exfiltration",
+          "severity": "medium",
+          "description": "All API requests are proxied through third-party domains (gateway.maton.ai, ctrl.maton.ai) rather than going directly to Linear's API (api.linear.app). This means the Maton service acts as a man-in-the-middle and can see all data flowing between the user and Linear. This is by design for managed OAuth, but represents a trust dependency on a third party.",
+          "evidence": "SKILL.md: Base URL is https://gateway.maton.ai/linear/graphql - 'The gateway proxies requests to api.linear.app and automatically injects your OAuth token.'",
+          "weight": 15
+        },
+        {
+          "category": "prompt-injection",
+          "severity": "low",
+          "description": "SKILL.md description contains a cross-reference directing users to another skill (api-gateway) for other third-party apps. This is a soft redirect but not a direct prompt injection attempt.",
+          "evidence": "SKILL.md: 'For other third party apps, use the api-gateway skill (https://clawhub.ai/byungkyu/api-gateway).'",
+          "weight": 5
+        },
+        {
+          "category": "undocumented-network-activity",
+          "severity": "low",
+          "description": "The skill communicates with multiple Maton-controlled domains (gateway.maton.ai, ctrl.maton.ai, connect.maton.ai). While these are documented in SKILL.md, the user's Linear OAuth token is managed entirely by this third-party service, giving them full access to the user's Linear account.",
+          "evidence": "SKILL.md documents three Maton domains: gateway.maton.ai, ctrl.maton.ai, connect.maton.ai",
+          "weight": 10
+        }
+      ],
+      "meta": {
+        "fileCount": 4,
+        "sizeBytes": 15513,
+        "inputTokens": 2396,
+        "outputTokens": 599,
+        "costUSD": 0.026955
+      }
+    },
+    {
+      "slug": "clawver-marketplace",
+      "sketchyScore": 35,
+      "severity": "low",
+      "recommendation": "review",
+      "summary": "This skill is a legitimate-looking e-commerce integration for a third-party marketplace (clawver.store). The primary concerns are that it sends agent identity and product data to an external non-OpenClaw domain, encourages installing a chain of six additional sub-skills from the same author (expanding attack surface), and handles API credentials. No obfuscation, privilege escalation, prompt injection, or binary downloads were detected.",
+      "findingsCount": 4,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "medium",
+          "description": "Skill requires and references an API key (CLAW_API_KEY) stored as an environment variable, and instructs the agent to save a returned API key. The registration endpoint returns a secret key that must be captured. While this is a standard API pattern, the key is sent to a third-party domain (api.clawver.store), not an OpenClaw-controlled service.",
+          "evidence": "SKILL.md: 'Save the returned apiKey.key immediately—it will not be shown again.' and multiple uses of -H 'Authorization: Bearer $CLAW_API_KEY'",
+          "weight": 15
+        },
+        {
+          "category": "data-exfiltration",
+          "severity": "medium",
+          "description": "Multiple POST/PUT/PATCH requests are made to a non-OpenClaw external domain (api.clawver.store). The skill sends agent identity data (name, handle, bio), product data, file URLs, and potentially base64-encoded file content to this third-party service. While this is the stated purpose of the skill, the domain is not part of the OpenClaw infrastructure.",
+          "evidence": "SKILL.md: curl -X POST https://api.clawver.store/v1/agents with agent identity JSON; curl -X POST https://api.clawver.store/v1/products/{productId}/file with fileUrl",
+          "weight": 20
+        },
+        {
+          "category": "remote-download",
+          "severity": "low",
+          "description": "The skill instructs installation of additional sub-skills (clawver-onboarding, clawver-digital-products, clawver-print-on-demand, clawver-orders, clawver-reviews, clawver-store-analytics) via clawhub install. This expands the attack surface by pulling in additional unreviewed skill bundles from the same author, creating a dependency chain that could introduce malicious code later.",
+          "evidence": "SKILL.md: 'When a specialized skill is missing, install it from ClawHub, then continue: clawhub install <skill-slug>'",
+          "weight": 10
+        },
+        {
+          "category": "undocumented-network-activity",
+          "severity": "low",
+          "description": "The skill references sending file data as base64 or HTTPS URLs to the Clawver platform, and mentions Printful integration (print-on-demand). The full scope of network activity across all six sub-skills is not documented in this bundle since they are separate installs, making the complete data flow opaque.",
+          "evidence": "SKILL.md: 'Digital/image files as HTTPS URLs or base64 data (the platform stores them — no external hosting required)' and references to Printful IDs",
+          "weight": 5
+        }
+      ],
+      "meta": {
+        "fileCount": 4,
+        "sizeBytes": 13031,
+        "inputTokens": 2541,
+        "outputTokens": 719,
+        "costUSD": 0.03068
+      }
+    },
+    {
+      "slug": "google-workspace-admin",
+      "sketchyScore": 35,
+      "severity": "low",
+      "recommendation": "review",
+      "summary": "This skill is a legitimate-looking Google Workspace Admin SDK integration that proxies all requests through Maton's third-party gateway infrastructure. While no outright malicious code is present, the architecture means all sensitive Google Workspace admin operations and credentials flow through a third-party service, which requires significant trust in Maton's infrastructure. The skill itself contains no obfuscated code, no binary downloads, and no hidden behaviors.",
+      "findingsCount": 4,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "medium",
+          "description": "Skill requires and uses a MATON_API_KEY environment variable, passing it as a Bearer token to external Maton services. This is a documented requirement for the OAuth proxy pattern, but it means the API key is transmitted to third-party infrastructure (maton.ai) rather than directly to Google.",
+          "evidence": "SKILL.md: req.add_header('Authorization', f'Bearer {os.environ[\"MATON_API_KEY\"]}')",
+          "weight": 15
+        },
+        {
+          "category": "undocumented-network-activity",
+          "severity": "low",
+          "description": "All API calls go through a third-party proxy gateway (gateway.maton.ai, ctrl.maton.ai, connect.maton.ai) rather than directly to Google APIs. This means Maton has full visibility into all Google Workspace Admin API requests and responses, including user data, group memberships, and organizational structures. While this is documented and the proxy pattern is the stated purpose, users should understand the trust implications.",
+          "evidence": "SKILL.md: Base URL https://gateway.maton.ai/google-workspace-admin/{native-api-path} - 'The gateway proxies requests to admin.googleapis.com and automatically injects your OAuth token.'",
+          "weight": 10
+        },
+        {
+          "category": "data-exfiltration",
+          "severity": "medium",
+          "description": "The skill routes all Google Workspace Admin operations (user management, group management, org units, roles, domain settings) through Maton's proxy servers. This gives the third-party proxy access to highly sensitive administrative data. While this is the explicit design of the skill, the proxy could log, store, or exfiltrate all admin operations and their responses.",
+          "evidence": "SKILL.md shows POST/PUT/PATCH/DELETE operations for creating users, managing groups, updating org units all routed through gateway.maton.ai",
+          "weight": 20
+        },
+        {
+          "category": "prompt-injection",
+          "severity": "low",
+          "description": "The SKILL.md description contains a cross-reference to another skill ('For other third party apps, use the api-gateway skill') which could be a mild form of steering agent behavior toward installing additional skills from the same author ecosystem.",
+          "evidence": "SKILL.md description: 'For other third party apps, use the api-gateway skill (https://clawhub.ai/byungkyu/api-gateway)'",
+          "weight": 5
+        }
+      ],
+      "meta": {
+        "fileCount": 4,
+        "sizeBytes": 15695,
+        "inputTokens": 2408,
+        "outputTokens": 703,
+        "costUSD": 0.029615000000000002
+      }
+    },
+    {
+      "slug": "hyperclaw",
+      "sketchyScore": 28,
+      "severity": "low",
+      "recommendation": "safe",
+      "summary": "This is a legitimate Hyperliquid trading CLI tool. It necessarily handles private keys and makes network requests to the Hyperliquid API, which is expected for its stated purpose. No obfuscation, data exfiltration, prompt injection, or malicious patterns were detected. The code is straightforward and well-documented.",
+      "findingsCount": 4,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "medium",
+          "description": "Skill requires and handles sensitive credentials including private keys (HL_SECRET_KEY) and API keys. These are loaded from .env files and used in the application. This is expected for a trading tool but represents inherent risk.",
+          "evidence": "SKILL.md requires env vars HL_ACCOUNT_ADDRESS, HL_SECRET_KEY. hyperliquid_tools.py loads these via dotenv and uses them to create Exchange wallets: Account.from_key(config['secret_key'])",
+          "weight": 15
+        },
+        {
+          "category": "network-activity",
+          "severity": "low",
+          "description": "The caching proxy server forwards all requests to the upstream Hyperliquid API (api.hyperliquid.xyz). This is documented and expected behavior for a trading tool, but the proxy handles all traffic including signed exchange requests containing credentials.",
+          "evidence": "server.py: UPSTREAM_URL = os.getenv('HL_UPSTREAM_URL', 'https://api.hyperliquid.xyz'). The proxy forwards /info and /exchange requests.",
+          "weight": 5
+        },
+        {
+          "category": "undocumented-network-activity",
+          "severity": "low",
+          "description": "The SKILL.md references optional Grok API (XAI_API_KEY) for sentiment, unlocks, and devcheck commands. The actual implementation code for these commands is truncated but the dependency on an external AI API is documented in README and SKILL.md.",
+          "evidence": "SKILL.md: 'Optional for intelligence commands: XAI_API_KEY=xai-...' and commands sentiment, unlocks, devcheck",
+          "weight": 5
+        },
+        {
+          "category": "credential-access",
+          "severity": "low",
+          "description": "The HL_ENV_FILE environment variable allows overriding which .env file is loaded, which could potentially be used to point to arbitrary files, though this is a standard dotenv pattern.",
+          "evidence": "hyperliquid_tools.py: _env_file = os.getenv('HL_ENV_FILE'); if _env_file: load_dotenv(_env_file, override=True)",
+          "weight": 3
+        }
+      ],
+      "meta": {
+        "fileCount": 8,
+        "sizeBytes": 145832,
+        "inputTokens": 5830,
+        "outputTokens": 560,
+        "costUSD": 0.04315
+      }
+    },
+    {
+      "slug": "mailchimp",
+      "sketchyScore": 25,
+      "severity": "low",
+      "recommendation": "review",
+      "summary": "This is a legitimate-looking Mailchimp API integration skill that proxies all requests through Maton's gateway service. No obfuscated code, no binary downloads, and no prompt injection found. The main concern is that all Mailchimp API traffic and OAuth tokens are routed through a third-party (maton.ai), requiring trust in that intermediary. The skill name 'mailchimp' could mislead users into thinking it's official.",
+      "findingsCount": 4,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "medium",
+          "description": "Skill requires and accesses a MATON_API_KEY environment variable for authentication. This is a standard OAuth proxy pattern but routes all Mailchimp API credentials through a third-party gateway (maton.ai), meaning the third party has access to the user's Mailchimp data.",
+          "evidence": "SKILL.md: os.environ[\"MATON_API_KEY\"] used in all examples; metadata requires env MATON_API_KEY",
+          "weight": 15
+        },
+        {
+          "category": "undocumented-network-activity",
+          "severity": "low",
+          "description": "All API requests are proxied through gateway.maton.ai and ctrl.maton.ai rather than directly to Mailchimp's API. This is documented and the core design of the skill, but it means a third-party intermediary (Maton) has full access to all Mailchimp data and OAuth tokens. The user must trust Maton as a proxy.",
+          "evidence": "SKILL.md: Base URL is https://gateway.maton.ai/mailchimp/{native-api-path}; connection management at https://ctrl.maton.ai",
+          "weight": 10
+        },
+        {
+          "category": "data-exfiltration",
+          "severity": "low",
+          "description": "POST requests are made to non-OpenClaw domains (ctrl.maton.ai) for connection management. This is documented and expected behavior for the OAuth flow, but all user data flows through a third-party service.",
+          "evidence": "SKILL.md: POST to https://ctrl.maton.ai/connections with JSON body containing app name",
+          "weight": 5
+        },
+        {
+          "category": "license-mismatch",
+          "severity": "low",
+          "description": "Minor inconsistency: LICENSE.txt copyright is attributed to 'Maton' (2026) while the skill slug and author field say 'mailchimp', which could confuse users into thinking this is an official Mailchimp product. It is actually a third-party proxy by Maton.",
+          "evidence": "LICENSE.txt: 'Copyright (c) 2026 Maton'; _meta.json slug: 'mailchimp'; SKILL.md metadata author: 'maton'",
+          "weight": 5
+        }
+      ],
+      "meta": {
+        "fileCount": 4,
+        "sizeBytes": 25063,
+        "inputTokens": 2395,
+        "outputTokens": 584,
+        "costUSD": 0.026575
+      }
+    },
+    {
+      "slug": "google-sheets",
+      "sketchyScore": 25,
+      "severity": "low",
+      "recommendation": "safe",
+      "summary": "This is a Google Sheets API integration skill that proxies all requests through Maton's gateway service (gateway.maton.ai). The skill itself contains only documentation (SKILL.md) with no executable code files — all operations are inline Python snippets using stdlib urllib. The patterns are consistent with a legitimate OAuth-managed API gateway, though users should be aware their API key and spreadsheet data flow through Maton's infrastructure.",
+      "findingsCount": 3,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "medium",
+          "description": "Skill requires and uses MATON_API_KEY environment variable, passed as Bearer token in Authorization headers to external services. This is expected for an API integration skill but involves credential handling.",
+          "evidence": "SKILL.md: req.add_header('Authorization', f'Bearer {os.environ[\"MATON_API_KEY\"]}')",
+          "weight": 10
+        },
+        {
+          "category": "undocumented-network-activity",
+          "severity": "low",
+          "description": "All network calls go to maton.ai subdomains (gateway.maton.ai, ctrl.maton.ai, connect.maton.ai). These are third-party domains, not OpenClaw/ClawhHub infrastructure, but they are clearly documented and consistent with the skill's stated purpose as a Maton-managed OAuth gateway for Google Sheets.",
+          "evidence": "SKILL.md: Multiple endpoints at gateway.maton.ai, ctrl.maton.ai, connect.maton.ai",
+          "weight": 10
+        },
+        {
+          "category": "data-exfiltration",
+          "severity": "low",
+          "description": "Skill instructs sending POST/PUT requests with user data (spreadsheet values) to gateway.maton.ai, a third-party proxy. While this is the intended functionality (writing to Google Sheets via proxy), user data flows through a non-Google intermediary.",
+          "evidence": "SKILL.md: PUT /google-sheets/v4/spreadsheets/{spreadsheetId}/values/{range} with body containing spreadsheet values sent to gateway.maton.ai",
+          "weight": 10
+        }
+      ],
+      "meta": {
+        "fileCount": 4,
+        "sizeBytes": 13722,
+        "inputTokens": 2399,
+        "outputTokens": 472,
+        "costUSD": 0.023795
+      }
+    },
+    {
+      "slug": "sendook",
+      "sketchyScore": 22,
+      "severity": "low",
+      "recommendation": "safe",
+      "summary": "This is a legitimate email sending/reading skill for the Sendook service. Its core functionality inherently involves sending data to an external API and to arbitrary email recipients, which creates a potential exfiltration channel, but this is the expected purpose of an email skill. No obfuscated code, prompt injection, privilege escalation, or overtly malicious patterns detected.",
+      "findingsCount": 3,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "low",
+          "description": "Skill requires API key and inbox ID as environment variables. This is standard practice for authenticated API access, but credentials are referenced throughout the documentation.",
+          "evidence": "SKILL.md: requires env SENDOOK_API_KEY, SENDOOK_INBOX_ID; multiple curl examples with -H 'Authorization: Bearer $SENDOOK_API_KEY'",
+          "weight": 5
+        },
+        {
+          "category": "data-exfiltration",
+          "severity": "medium",
+          "description": "The skill's core purpose is sending emails with arbitrary content and attachments to arbitrary recipients via an external API (api.sendook.com). While this is the stated functionality, it inherently provides a data exfiltration channel. The attachment feature explicitly reads local files and sends them externally.",
+          "evidence": "SKILL.md: readFileSync(filePath).toString('base64') then sends via client.inbox.message.send() with attachments to external recipients; POST to https://api.sendook.com/v1/inboxes/$SENDOOK_INBOX_ID/messages/send",
+          "weight": 15
+        },
+        {
+          "category": "file-access",
+          "severity": "low",
+          "description": "The skill documents reading local files for email attachments. It does include a warning about not reading sensitive files, but the capability exists to read arbitrary files if misused by an agent.",
+          "evidence": "SKILL.md: 'import { readFileSync } from \"fs\"' and 'readFileSync(filePath).toString(\"base64\")'. Warning states 'Never read files outside the current working directory' but this is advisory only, not enforced.",
+          "weight": 5
+        }
+      ],
+      "meta": {
+        "fileCount": 3,
+        "sizeBytes": 8037,
+        "inputTokens": 2117,
+        "outputTokens": 496,
+        "costUSD": 0.022985000000000002
+      }
+    },
+    {
+      "slug": "generect-api",
+      "sketchyScore": 22,
+      "severity": "low",
+      "recommendation": "safe",
+      "summary": "This skill is a straightforward API wrapper for the Generect B2B lead generation service. It sends user-provided business data to a documented external API. No obfuscation, no privilege escalation, no prompt injection, and no downloads of executables. The main concern is that it sends personal/business data (names, emails, LinkedIn URLs) to a third-party service, which is its intended and documented purpose. The mention of npx execution for an MCP server is a minor additional concern.",
+      "findingsCount": 3,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "medium",
+          "description": "Skill requires and uses an API key via environment variable GENERECT_API_KEY. This is standard practice for API integrations, but the key is passed directly in shell commands and curl headers.",
+          "evidence": "scripts/generect.sh: AUTH=\"Authorization: Token ${GENERECT_API_KEY:?Set GENERECT_API_KEY}\"",
+          "weight": 5
+        },
+        {
+          "category": "data-exfiltration",
+          "severity": "medium",
+          "description": "The skill sends POST requests containing user-provided data (names, emails, LinkedIn URLs, search criteria) to an external third-party API (api.generect.com). This is the stated purpose of the skill and is well-documented, but it does involve sending potentially sensitive personal/business data to a non-OpenClaw domain.",
+          "evidence": "scripts/generect.sh: curl -sS -X POST \"$endpoint\" with body data to https://api.generect.com/api/v1/*; SKILL.md documents all endpoints",
+          "weight": 12
+        },
+        {
+          "category": "undocumented-network-activity",
+          "severity": "low",
+          "description": "SKILL.md mentions an MCP server option at mcp.generect.com and suggests running 'npx -y generect-ultimate-mcp@latest' which would download and execute a remote npm package. While documented, this is an additional network vector that could pull arbitrary code.",
+          "evidence": "SKILL.md: 'Local: npx -y generect-ultimate-mcp@latest with env GENERECT_API_KEY'",
+          "weight": 10
+        }
+      ],
+      "meta": {
+        "fileCount": 5,
+        "sizeBytes": 7287,
+        "inputTokens": 2640,
+        "outputTokens": 488,
+        "costUSD": 0.0254
+      }
+    },
+    {
+      "slug": "shortcut",
+      "sketchyScore": 22,
+      "severity": "low",
+      "recommendation": "safe",
+      "summary": "This is a legitimate Shortcut.com API integration skill. All network activity targets the official Shortcut API, credential handling follows standard patterns (env var or config file), and the scripts perform only the documented operations. Minor concerns include string-based JSON construction and sourcing a config file, but no malicious patterns detected.",
+      "findingsCount": 5,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "medium",
+          "description": "Scripts read API token from a file on disk and use it in HTTP requests. This is the expected pattern for API integrations, but the token is loaded in every script and passed via HTTP headers.",
+          "evidence": "TOKEN=\"${SHORTCUT_API_TOKEN:-$(cat ~/.config/shortcut/api-token 2>/dev/null | tr -d '\\n')}\" used in all scripts, passed as -H \"Shortcut-Token: $TOKEN\"",
+          "weight": 10
+        },
+        {
+          "category": "remote-download",
+          "severity": "low",
+          "description": "All curl requests target the official Shortcut API (api.app.shortcut.com). No downloads of binaries or executable content. The API calls are well-documented and consistent with the skill's stated purpose.",
+          "evidence": "BASE_URL=\"https://api.app.shortcut.com/api/v3\" used across all scripts",
+          "weight": 0
+        },
+        {
+          "category": "data-exfiltration",
+          "severity": "low",
+          "description": "Scripts send POST/PUT requests to api.app.shortcut.com, which is the legitimate Shortcut API. Data sent includes story names, descriptions, comments, and task details — all consistent with the stated purpose of managing Shortcut stories.",
+          "evidence": "POST/PUT requests to $BASE_URL/stories, $BASE_URL/stories/$STORY_ID/comments, etc.",
+          "weight": 5
+        },
+        {
+          "category": "code-injection-risk",
+          "severity": "low",
+          "description": "The shortcut-update-story.sh script constructs JSON payloads via string concatenation rather than using jq, which could be vulnerable to injection if user-supplied descriptions contain special characters. This is more of a bug than malicious intent.",
+          "evidence": "UPDATES+=(\"\\\"description\\\": \\\"$2\\\"\") in shortcut-update-story.sh — raw string interpolation into JSON",
+          "weight": 5
+        },
+        {
+          "category": "credential-access",
+          "severity": "low",
+          "description": "The shortcut-init-workflow.sh script sources a config file (~/.config/shortcut/workflow-states) which it also creates. While the generated file only contains export statements with state IDs, sourcing arbitrary files could be a risk if the file were tampered with by another process.",
+          "evidence": "source ~/.config/shortcut/workflow-states in shortcut-update-story.sh",
+          "weight": 2
+        }
+      ],
+      "meta": {
+        "fileCount": 17,
+        "sizeBytes": 23512,
+        "inputTokens": 6833,
+        "outputTokens": 641,
+        "costUSD": 0.05019
+      }
+    },
+    {
+      "slug": "feishu-docs",
+      "sketchyScore": 18,
+      "severity": "low",
+      "recommendation": "safe",
+      "summary": "This is a legitimate Feishu (Lark) document management skill that interacts with the official Feishu Open Platform API. All network activity is directed at the documented official API endpoint (open.feishu.cn). Credential handling follows standard patterns for API integrations. No obfuscated code, data exfiltration, prompt injection, or other malicious patterns detected.",
+      "findingsCount": 3,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "low",
+          "description": "Skill requires and reads sensitive credentials (FEISHU_APP_ID, FEISHU_APP_SECRET) from environment variables and .env files. This is expected behavior for a Feishu API integration skill and credentials are used solely for authenticating with the official Feishu API.",
+          "evidence": "src/api.js constructor: this.appId = appId; this.appSecret = appSecret; bin/cli.js: process.env.FEISHU_APP_ID, process.env.FEISHU_APP_SECRET; SKILL.md env requirements",
+          "weight": 8
+        },
+        {
+          "category": "network-activity",
+          "severity": "low",
+          "description": "Makes HTTP requests to external API (open.feishu.cn). This is fully documented and expected for a Feishu document management skill. All endpoints are to the official Feishu Open Platform API.",
+          "evidence": "src/api.js: this.baseURL = 'https://open.feishu.cn/open-apis'; All API endpoints documented in SKILL.md under '飞书 API 端点'",
+          "weight": 5
+        },
+        {
+          "category": "credential-access",
+          "severity": "low",
+          "description": "CLI allows passing app-secret as a command-line argument, which could expose it in shell history and process listings. This is a minor security concern but not malicious.",
+          "evidence": "bin/cli.js: .option('--app-secret <secret>', '飞书应用密钥（覆盖环境变量）')",
+          "weight": 5
+        }
+      ],
+      "meta": {
+        "fileCount": 14,
+        "sizeBytes": 90090,
+        "inputTokens": 10526,
+        "outputTokens": 428,
+        "costUSD": 0.06333
+      }
+    },
+    {
+      "slug": "clawscan",
+      "sketchyScore": 15,
+      "severity": "low",
+      "recommendation": "safe",
+      "summary": "This appears to be a legitimate security scanning tool for ClawHub skills. The code contains references to sensitive paths and dangerous patterns, but these exist as detection signatures (regex patterns) for scanning other skills — not for exploiting them. The subprocess import is expected for a scanner tool. No evidence of data exfiltration, remote downloads, obfuscation, or prompt injection was found. Minor identity inconsistency between author, slug, and GitHub account.",
+      "findingsCount": 4,
+      "findings": [
+        {
+          "category": "shell-execution",
+          "severity": "medium",
+          "description": "The scanner script imports subprocess module and uses it for scanning operations. While this is expected for a security scanning tool, it could theoretically be misused.",
+          "evidence": "scripts/skillguard.py: import subprocess (line 12 in visible code)",
+          "weight": 5
+        },
+        {
+          "category": "credential-access",
+          "severity": "low",
+          "description": "The script contains regex patterns referencing sensitive paths like ~/.ssh, ~/.aws, ~/.gnupg, /etc/passwd, /etc/shadow. However, these are detection patterns (strings in regex for scanning other skills), not actual file access operations. This is the expected behavior of a security scanner.",
+          "evidence": "Pattern CRIT-020 through CRIT-023: regex patterns designed to detect credential access in OTHER skills, e.g., r'[\"\\']~?/\\.ssh[/\"\\']'",
+          "weight": 3
+        },
+        {
+          "category": "filesystem-access",
+          "severity": "low",
+          "description": "Creates configuration directories and files under ~/.skillguard/ (config, trust list, vulnerability DB, cache). This is standard for a CLI tool but worth noting.",
+          "evidence": "CONFIG_DIR = Path.home() / '.skillguard', CONFIG_FILE, TRUST_FILE, VULN_DB_FILE, SCAN_CACHE",
+          "weight": 3
+        },
+        {
+          "category": "metadata-inconsistency",
+          "severity": "low",
+          "description": "Minor inconsistency: skill.json lists author as 'PaxSwarm' but the slug/publisher is 'clawscan' and the repo is under 'G0HEAD' GitHub account. Three different identities is slightly unusual but not necessarily malicious.",
+          "evidence": "skill.json author: 'PaxSwarm', _meta.json slug: 'clawscan', repository: 'https://github.com/G0HEAD/skillguard'",
+          "weight": 4
+        }
+      ],
+      "meta": {
+        "fileCount": 5,
+        "sizeBytes": 52534,
+        "inputTokens": 3602,
+        "outputTokens": 546,
+        "costUSD": 0.03166
+      }
+    },
+    {
+      "slug": "french-services",
+      "sketchyScore": 15,
+      "severity": "low",
+      "recommendation": "safe",
+      "summary": "This skill is a legitimate collection of Python scripts for accessing French public services (SNCF trains, La Poste tracking, weather, RATP transit). All network calls go to documented, well-known public APIs. API key handling follows standard environment variable patterns. The base64 usage is standard HTTP Basic Auth for Navitia. No data exfiltration, no obfuscation, no prompt injection, no privilege escalation detected.",
+      "findingsCount": 4,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "low",
+          "description": "Scripts read API keys from environment variables (SNCF_API_KEY, LAPOSTE_API_KEY, IDFM_API_KEY). This is standard practice for API authentication and all keys are well-documented with their purpose and source.",
+          "evidence": "os.environ.get('SNCF_API_KEY'), os.environ.get('LAPOSTE_API_KEY'), os.environ.get('IDFM_API_KEY') across sncf.py, laposte.py, ratp.py",
+          "weight": 5
+        },
+        {
+          "category": "credential-access",
+          "severity": "low",
+          "description": "The api-setup.md reference file suggests users add API keys to ~/.zshrc or ~/.bashrc, which is common practice but stores secrets in plaintext shell config files.",
+          "evidence": "references/api-setup.md: 'export SNCF_API_KEY=\"ton-token-navitia\"' in ~/.zshrc",
+          "weight": 3
+        },
+        {
+          "category": "undocumented-network-activity",
+          "severity": "low",
+          "description": "The meteo.py script calls the Open-Meteo geocoding API (geocoding-api.open-meteo.com) in addition to the main weather API. This is not explicitly documented in SKILL.md but is a reasonable and expected part of geocoding city names to coordinates.",
+          "evidence": "meteo.py: url = f\"https://geocoding-api.open-meteo.com/v1/search?{params}\"",
+          "weight": 3
+        },
+        {
+          "category": "obfuscated-code",
+          "severity": "low",
+          "description": "sncf.py uses base64 encoding, but only for HTTP Basic Authentication to the Navitia API, which is the standard authentication method for that service. Not used for obfuscation.",
+          "evidence": "sncf.py: auth = base64.b64encode(f\"{key}:\".encode()).decode() — standard Basic auth pattern",
+          "weight": 4
+        }
+      ],
+      "meta": {
+        "fileCount": 8,
+        "sizeBytes": 50202,
+        "inputTokens": 7298,
+        "outputTokens": 516,
+        "costUSD": 0.04939
+      }
+    },
+    {
+      "slug": "bluetooth",
+      "sketchyScore": 12,
+      "severity": "low",
+      "recommendation": "safe",
+      "summary": "This is a well-structured, documentation-only Bluetooth device management skill with no executable code, no remote downloads, no obfuscation, and no data exfiltration. It contains reasonable security guidelines and the only minor concerns are the use of sudo for packet capture and storing pairing PINs in plaintext profiles.",
+      "findingsCount": 3,
+      "findings": [
+        {
+          "category": "privilege-escalation",
+          "severity": "low",
+          "description": "Uses sudo for Bluetooth packet capture (btmon), which is a legitimate requirement for HCI traffic monitoring but grants elevated privileges.",
+          "evidence": "tools.md: 'sudo btmon' and 'sudo btmon -w capture.btsnoop'",
+          "weight": 5
+        },
+        {
+          "category": "credential-access",
+          "severity": "low",
+          "description": "Stores Bluetooth pairing PINs/passkeys in plaintext profile files, which the security.md itself warns against. Minor inconsistency but low practical risk since these are typically static default PINs (e.g., 0000).",
+          "evidence": "profiles.md: 'Pairing: PIN required (0000)' stored in profile. security.md warns: 'Store pairing keys in plain text → Keys allow reconnection without consent'",
+          "weight": 4
+        },
+        {
+          "category": "network-scanning",
+          "severity": "low",
+          "description": "Bluetooth scanning/discovery is the core purpose of this skill. It instructs scanning for nearby devices, which is expected behavior for a Bluetooth management tool, not network reconnaissance.",
+          "evidence": "tools.md: 'scan on', 'blueutil --inquiry 5', BleakScanner.discover()",
+          "weight": 3
+        }
+      ],
+      "meta": {
+        "fileCount": 7,
+        "sizeBytes": 16302,
+        "inputTokens": 4876,
+        "outputTokens": 380,
+        "costUSD": 0.03388
+      }
+    },
+    {
+      "slug": "amplitude-automation",
+      "sketchyScore": 12,
+      "severity": "low",
+      "recommendation": "safe",
+      "summary": "This is a documentation-only skill that provides instructions for using Amplitude analytics tools via the Rube MCP proxy service. It contains no executable code, no scripts, no obfuscation, and no direct malicious patterns. The only minor concern is that all API interactions are routed through a third-party service (rube.app), which is standard for MCP-based integrations.",
+      "findingsCount": 2,
+      "findings": [
+        {
+          "category": "undocumented-network-activity",
+          "severity": "low",
+          "description": "Skill directs users to add an external MCP server endpoint (https://rube.app/mcp) which acts as a proxy/middleware for Amplitude API calls. All Amplitude API interactions flow through this third-party service rather than directly to Amplitude.",
+          "evidence": "SKILL.md: '**Get Rube MCP**: Add `https://rube.app/mcp` as an MCP server in your client configuration. No API keys needed — just add the endpoint and it works.'",
+          "weight": 10
+        },
+        {
+          "category": "credential-access",
+          "severity": "low",
+          "description": "The skill instructs users to authenticate their Amplitude account through the Rube MCP connection manager, which means Amplitude credentials/tokens are managed by the third-party Rube service. This is expected behavior for an MCP integration proxy but worth noting.",
+          "evidence": "SKILL.md: 'Call `RUBE_MANAGE_CONNECTIONS` with toolkit `amplitude`' and 'follow the returned auth link to complete Amplitude authentication'",
+          "weight": 5
+        }
+      ],
+      "meta": {
+        "fileCount": 3,
+        "sizeBytes": 8249,
+        "inputTokens": 2130,
+        "outputTokens": 367,
+        "costUSD": 0.019825
+      }
+    },
+    {
+      "slug": "amadeus-hotels",
+      "sketchyScore": 12,
+      "severity": "low",
+      "recommendation": "safe",
+      "summary": "This appears to be a legitimate Amadeus hotel search API client. It reads API credentials from environment variables (expected), makes requests only to documented Amadeus API endpoints, caches OAuth tokens locally, and stores price tracking state in a local directory. No obfuscation, exfiltration, prompt injection, or malicious patterns detected.",
+      "findingsCount": 3,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "low",
+          "description": "Skill reads API credentials from environment variables (AMADEUS_API_KEY, AMADEUS_API_SECRET) and caches OAuth tokens to disk. This is expected behavior for an API client skill and credentials are not exfiltrated.",
+          "evidence": "scripts/auth.py: get_credentials() reads AMADEUS_API_KEY and AMADEUS_API_SECRET from os.environ; save_token() writes token to state/token.json",
+          "weight": 5
+        },
+        {
+          "category": "undocumented-network-activity",
+          "severity": "low",
+          "description": "All network activity is directed at the Amadeus API (test.api.amadeus.com or api.amadeus.com), which is well-documented and consistent with the skill's stated purpose. No undocumented endpoints detected.",
+          "evidence": "scripts/auth.py: get_base_url() returns 'https://test.api.amadeus.com' or 'https://api.amadeus.com'; all make_request() calls use this base URL",
+          "weight": 2
+        },
+        {
+          "category": "filesystem-write",
+          "severity": "low",
+          "description": "Skill writes state files (cached OAuth token and tracked hotel data) to a local state/ directory within the skill folder. This is normal for caching and tracking functionality but worth noting.",
+          "evidence": "scripts/auth.py: STATE_DIR / 'token.json'; scripts/track.py: STATE_DIR / 'tracked.json'; both use STATE_DIR = Path(__file__).parent.parent / 'state'",
+          "weight": 5
+        }
+      ],
+      "meta": {
+        "fileCount": 10,
+        "sizeBytes": 44445,
+        "inputTokens": 9074,
+        "outputTokens": 441,
+        "costUSD": 0.056395
+      }
+    },
+    {
+      "slug": "find-skills",
+      "sketchyScore": 12,
+      "severity": "low",
+      "recommendation": "safe",
+      "summary": "This is a skill discovery and installation helper that acts as a front-end for the `npx skills` CLI. It has minor concerns around encouraging global installs with confirmation bypass (`-g -y`) and an overly broad activation trigger, but contains no obfuscated code, credential access, data exfiltration, or other clearly malicious patterns.",
+      "findingsCount": 2,
+      "findings": [
+        {
+          "category": "remote-download",
+          "severity": "low",
+          "description": "Skill instructs the agent to run `npx skills add` commands which download and install packages from GitHub repositories. While this is the intended purpose of the skill (a package manager for agent skills), it does involve downloading and installing external code. The `-y` flag to skip confirmation prompts reduces user oversight.",
+          "evidence": "SKILL.md: `npx skills add <owner/repo@skill> -g -y` - The `-g` flag installs globally and `-y` skips confirmation prompts.",
+          "weight": 10
+        },
+        {
+          "category": "prompt-injection",
+          "severity": "low",
+          "description": "The skill has a broad trigger description that encourages the agent to invoke it for many types of user queries ('how do I do X', 'can you do X'). This is an aggressive activation pattern that could redirect users toward installing third-party skills when they simply want direct help. However, it does not contain explicit prompt injection or hidden instructions.",
+          "evidence": "SKILL.md frontmatter: 'Helps users discover and install agent skills when they ask questions like \"how do I do X\", \"find a skill for X\"...'",
+          "weight": 5
+        }
+      ],
+      "meta": {
+        "fileCount": 3,
+        "sizeBytes": 4908,
+        "inputTokens": 2023,
+        "outputTokens": 392,
+        "costUSD": 0.019915000000000002
+      }
+    },
+    {
+      "slug": "docker-essentials",
+      "sketchyScore": 8,
+      "severity": "clean",
+      "recommendation": "safe",
+      "summary": "This is a straightforward Docker reference/cheatsheet skill containing standard Docker CLI commands and workflows. No malicious patterns, obfuscation, remote downloads, data exfiltration, or prompt injection detected.",
+      "findingsCount": 3,
+      "findings": [
+        {
+          "category": "credential-access",
+          "severity": "low",
+          "description": "Contains password and secret strings in Docker command examples, but these are standard documentation examples for setting environment variables on database containers, not credential harvesting.",
+          "evidence": "SKILL.md: `-e POSTGRES_PASSWORD=secret` and `-e MY_VAR=value`",
+          "weight": 3
+        },
+        {
+          "category": "privilege-escalation",
+          "severity": "low",
+          "description": "References executing commands as root inside containers, which is a standard Docker debugging practice, not host-level privilege escalation.",
+          "evidence": "SKILL.md: `docker exec -u root -it container_name bash`",
+          "weight": 3
+        },
+        {
+          "category": "general",
+          "severity": "low",
+          "description": "The `docker system prune -a --volumes` command can be destructive (removes all unused images, containers, and volumes), but this is a legitimate and well-documented Docker maintenance command.",
+          "evidence": "SKILL.md: `docker system prune --volumes`",
+          "weight": 2
+        }
+      ],
+      "meta": {
+        "fileCount": 3,
+        "sizeBytes": 6566,
+        "inputTokens": 2127,
+        "outputTokens": 315,
+        "costUSD": 0.01851
+      }
+    },
+    {
+      "slug": "tiangong-wps-word-automation",
+      "sketchyScore": 8,
+      "severity": "clean",
+      "recommendation": "safe",
+      "summary": "This skill is a straightforward Windows COM automation wrapper for Word/WPS document operations. It contains no network activity, no obfuscation, no credential access, no data exfiltration, and no prompt injection. All operations are local file manipulations consistent with the documented purpose.",
+      "findingsCount": 2,
+      "findings": [
+        {
+          "category": "local-com-automation",
+          "severity": "low",
+          "description": "Uses Windows COM automation (win32com.client) to control Word/WPS applications. This is a legitimate automation pattern but grants the script the ability to open, modify, and save arbitrary documents on the system.",
+          "evidence": "win32com.client.Dispatch(pid) used in get_app() function; open_doc() opens arbitrary file paths",
+          "weight": 5
+        },
+        {
+          "category": "file-system-access",
+          "severity": "low",
+          "description": "Script creates directories and writes files to user-specified paths, which is expected for a document automation tool but could be used to write to sensitive locations if misused.",
+          "evidence": "outdir.mkdir(parents=True, exist_ok=True) in cmd_split; Path(args.output).write_text() in cmd_read",
+          "weight": 3
+        }
+      ],
+      "meta": {
+        "fileCount": 4,
+        "sizeBytes": 10187,
+        "inputTokens": 2904,
+        "outputTokens": 290,
+        "costUSD": 0.02177
+      }
+    },
+    {
+      "slug": "wikipedia-oc",
+      "sketchyScore": 5,
+      "severity": "clean",
+      "recommendation": "safe",
+      "summary": "This skill is a straightforward instructional document for using the well-known `wikipedia` Python module to search and retrieve English Wikipedia content. It contains no executable code, no obfuscation, no credential access, no data exfiltration, no remote binary downloads, and no prompt injection attempts. The only network activity is the expected Wikipedia API usage, which is clearly documented.",
+      "findingsCount": 2,
+      "findings": [
+        {
+          "category": "undocumented-network-activity",
+          "severity": "info",
+          "description": "The skill instructs the agent to use the `wikipedia` Python module which makes HTTP requests to the public Wikipedia API (en.wikipedia.org). This network activity is clearly documented and expected for the skill's stated purpose.",
+          "evidence": "SKILL.md: 'This skill enables OpenClaw to retrieve information from the English-language Wikipedia using the Python module wikipedia'",
+          "weight": 0
+        },
+        {
+          "category": "pip-install",
+          "severity": "info",
+          "description": "The skill requires installing a well-known PyPI package (`wikipedia`). This is a legitimate, widely-used Python package with no known malicious behavior.",
+          "evidence": "SKILL.md: 'pip install wikipedia'",
+          "weight": 0
+        }
+      ],
+      "meta": {
+        "fileCount": 3,
+        "sizeBytes": 4998,
+        "inputTokens": 2047,
+        "outputTokens": 307,
+        "costUSD": 0.017910000000000002
+      }
+    },
+    {
+      "slug": "race-finder",
+      "sketchyScore": 5,
+      "severity": "clean",
+      "recommendation": "safe",
+      "summary": "This is a clean, read-only API skill that searches for races via documented GET requests to a public API. No code execution, no credential access, no obfuscation, no data exfiltration, and no prompt injection detected.",
+      "findingsCount": 1,
+      "findings": [
+        {
+          "category": "undocumented-network-activity",
+          "severity": "low",
+          "description": "Skill makes HTTP GET requests to an external API (api.racefinder.net) and links to racefinder.net and runsignup.com. All endpoints are clearly documented in SKILL.md and README.md with no hidden or undocumented network activity.",
+          "evidence": "SKILL.md: Base URL https://api.racefinder.net, GET /api/v1/races; response includes details_url (racefinder.net) and register_url (runsignup.com)",
+          "weight": 5
+        }
+      ],
+      "meta": {
+        "fileCount": 4,
+        "sizeBytes": 6655,
+        "inputTokens": 2464,
+        "outputTokens": 196,
+        "costUSD": 0.01722
+      }
+    },
+    {
+      "slug": "pi-health",
+      "sketchyScore": 5,
+      "severity": "clean",
+      "recommendation": "safe",
+      "summary": "This is a straightforward Raspberry Pi health monitoring script that reads standard system metrics (temperature, throttling, memory, disk, CPU frequency, load average) using only local system interfaces. No network activity, no credential access, no obfuscation, no privilege escalation, and no remote downloads detected.",
+      "findingsCount": 1,
+      "findings": [
+        {
+          "category": "system-file-access",
+          "severity": "info",
+          "description": "Reads from /sys, /proc, and parses dmesg output, which is expected for a hardware health monitoring tool on Raspberry Pi. No write operations to system files.",
+          "evidence": "Reads /sys/class/thermal/thermal_zone0/temp, /sys/devices/system/cpu/cpu0/cpufreq/*, /proc/uptime, /proc/loadavg, and uses vcgencmd, free, df, dmesg (read-only)",
+          "weight": 5
+        }
+      ],
+      "meta": {
+        "fileCount": 4,
+        "sizeBytes": 8749,
+        "inputTokens": 2454,
+        "outputTokens": 205,
+        "costUSD": 0.017395
+      }
+    },
+    {
+      "slug": "pdf-text-extractor",
+      "sketchyScore": 5,
+      "severity": "clean",
+      "recommendation": "safe",
+      "summary": "This skill appears to be a straightforward PDF text extraction tool with no malicious patterns. It has no network activity, no obfuscated code, no credential access, no data exfiltration, and no privilege escalation. The code reads local PDF files and processes them using the legitimate pdfjs-dist library.",
+      "findingsCount": 2,
+      "findings": [
+        {
+          "category": "code-quality",
+          "severity": "low",
+          "description": "The countWords function is used both as an internal helper (called with a string in extractText) and as an exported function expecting an object parameter, which would cause a runtime error. This is a bug, not malicious.",
+          "evidence": "Line in extractText: 'const wordCount = countWords(fullText);' but countWords expects '{ text, options }' object",
+          "weight": 0
+        },
+        {
+          "category": "dependency-review",
+          "severity": "low",
+          "description": "The only dependency is pdfjs-dist, which is the official Mozilla PDF.js library distributed via npm. This is a well-known, legitimate package.",
+          "evidence": "package.json: \"pdfjs-dist\": \"^3.11.174\"",
+          "weight": 0
+        }
+      ],
+      "meta": {
+        "fileCount": 9,
+        "sizeBytes": 51963,
+        "inputTokens": 6603,
+        "outputTokens": 273,
+        "costUSD": 0.03984
+      }
+    },
+    {
+      "slug": "git-workflows",
+      "sketchyScore": 5,
+      "severity": "clean",
+      "recommendation": "safe",
+      "summary": "This is a legitimate git workflows reference skill containing documentation and examples for advanced git operations (rebase, bisect, worktree, reflog, etc.). No malicious patterns, obfuscation, credential harvesting, data exfiltration, or prompt injection detected.",
+      "findingsCount": 1,
+      "findings": [
+        {
+          "category": "shell-script-creation",
+          "severity": "low",
+          "description": "The skill demonstrates creating a temporary shell script for git bisect automation, but this is a standard, well-documented git workflow pattern and the script content is transparent and benign.",
+          "evidence": "cat > /tmp/test-for-bug.sh << 'EOF'\n#!/bin/bash\nnpm test -- --grep \"login should redirect\" 2>/dev/null\nEOF\nchmod +x /tmp/test-for-bug.sh",
+          "weight": 5
+        }
+      ],
+      "meta": {
+        "fileCount": 3,
+        "sizeBytes": 13648,
+        "inputTokens": 2123,
+        "outputTokens": 197,
+        "costUSD": 0.015539999999999998
+      }
+    },
+    {
+      "slug": "mintgarden",
+      "sketchyScore": 5,
+      "severity": "clean",
+      "recommendation": "safe",
+      "summary": "This skill is a straightforward API client wrapper for MintGarden (a Chia NFT marketplace). It only makes GET requests to the documented public API at api.mintgarden.io, has a single well-known dependency (axios), contains no obfuscation, no credential access, no data exfiltration, and no prompt injection attempts.",
+      "findingsCount": 3,
+      "findings": [
+        {
+          "category": "undocumented-network-activity",
+          "severity": "low",
+          "description": "Makes HTTP requests to api.mintgarden.io, which is documented and consistent with the skill's stated purpose as a MintGarden API wrapper",
+          "evidence": "lib/api.js: const BASE_URL = 'https://api.mintgarden.io'; this.client = axios.create({ baseURL, ... })",
+          "weight": 0
+        },
+        {
+          "category": "general",
+          "severity": "low",
+          "description": "install.sh runs npm install which could theoretically pull malicious packages, but only installs axios (a well-known package) as declared in package.json",
+          "evidence": "install.sh: npm install --production; package.json dependencies: { \"axios\": \"^1.6.0\" }",
+          "weight": 3
+        },
+        {
+          "category": "general",
+          "severity": "low",
+          "description": "cli.js uses npm link which creates global symlinks, but this is standard practice for CLI tools and is documented",
+          "evidence": "README.md: npm link; cli.js has bin entries for 'mg' and 'mintgarden'",
+          "weight": 2
+        }
+      ],
+      "meta": {
+        "fileCount": 11,
+        "sizeBytes": 50149,
+        "inputTokens": 8510,
+        "outputTokens": 334,
+        "costUSD": 0.0509
+      }
+    },
+    {
+      "slug": "analyze-burn-economics",
+      "sketchyScore": 3,
+      "severity": "clean",
+      "recommendation": "safe",
+      "summary": "This is a clean analytical skill for Uniswap burn economics research. It contains only markdown documentation and metadata files with no executable code, no network calls, no credential access, and no prompt injection attempts. The only minor note is delegation to an external subagent whose definition is not included.",
+      "findingsCount": 2,
+      "findings": [
+        {
+          "category": "general-review",
+          "severity": "info",
+          "description": "Skill is a pure analytical/research skill that uses only declared MCP tools for Uniswap protocol fee analysis. No shell commands, no network downloads, no credential access, no obfuscated code detected.",
+          "evidence": "SKILL.md declares only allowed-tools: MCP uniswap tools and a Task subagent. No scripts, no executable code, no hidden instructions found in any file.",
+          "weight": 0
+        },
+        {
+          "category": "undocumented-network-activity",
+          "severity": "info",
+          "description": "The skill delegates to a subagent (protocol-fee-seeker) whose behavior is not fully visible in this bundle. This is a minor opacity concern but is a standard pattern for multi-agent workflows.",
+          "evidence": "allowed-tools includes Task(subagent_type:protocol-fee-seeker) — the subagent's skill definition is not included in this bundle.",
+          "weight": 3
+        }
+      ],
+      "meta": {
+        "fileCount": 4,
+        "sizeBytes": 19036,
+        "inputTokens": 2449,
+        "outputTokens": 319,
+        "costUSD": 0.02022
+      }
+    },
+    {
+      "slug": "elasticsearch",
+      "sketchyScore": 3,
+      "severity": "clean",
+      "recommendation": "safe",
+      "summary": "This skill is a purely informational reference document about Elasticsearch best practices, mappings, queries, and common errors. It contains no executable code, no scripts, no network calls, and no obfuscation. The only minor note is that it declares a dependency on curl without any visible usage, which is benign.",
+      "findingsCount": 1,
+      "findings": [
+        {
+          "category": "undocumented-network-activity",
+          "severity": "low",
+          "description": "Skill metadata declares a dependency on 'curl' binary, but the SKILL.md content is purely informational documentation about Elasticsearch best practices with no actual shell commands or scripts that invoke curl.",
+          "evidence": "metadata: {\"clawdbot\":{\"emoji\":\"🔍\",\"requires\":{\"anyBins\":[\"curl\"]},\"os\":[\"linux\",\"darwin\",\"win32\"]}}",
+          "weight": 3
+        }
+      ],
+      "meta": {
+        "fileCount": 3,
+        "sizeBytes": 4686,
+        "inputTokens": 1949,
+        "outputTokens": 210,
+        "costUSD": 0.014995000000000001
+      }
+    },
+    {
+      "slug": "super-websearch-realtime",
+      "sketchyScore": 3,
+      "severity": "clean",
+      "recommendation": "safe",
+      "summary": "This skill is a straightforward web search prompt template that uses the built-in `web_search_preview` tool. It contains no scripts, no remote downloads, no obfuscated code, no credential access, no data exfiltration, and no prompt injection attempts. The SKILL.md is a clean system/user prompt definition with fallback behavior.",
+      "findingsCount": 1,
+      "findings": [
+        {
+          "category": "metadata-mismatch",
+          "severity": "info",
+          "description": "The author/slug name 'super-websearch-realtime' is a generic name that could be an attempt to impersonate or shadow a legitimate web search skill, but this alone is not malicious.",
+          "evidence": "slug: super-websearch-realtime, author: super-websearch-realtime",
+          "weight": 3
+        }
+      ],
+      "meta": {
+        "fileCount": 3,
+        "sizeBytes": 1179,
+        "inputTokens": 1099,
+        "outputTokens": 188,
+        "costUSD": 0.010195
+      }
+    },
+    {
+      "slug": "aso",
+      "sketchyScore": 2,
+      "severity": "clean",
+      "recommendation": "safe",
+      "summary": "This skill is a purely informational SKILL.md containing app store optimization best practices. It contains no code, no scripts, no network activity, no obfuscation, and no executable logic of any kind.",
+      "findingsCount": 0,
+      "findings": [],
+      "meta": {
+        "fileCount": 3,
+        "sizeBytes": 3750,
+        "inputTokens": 1721,
+        "outputTokens": 73,
+        "costUSD": 0.01043
+      }
+    },
+    {
+      "slug": "tamil-whatsapp",
+      "sketchyScore": 2,
+      "severity": "clean",
+      "recommendation": "safe",
+      "summary": "This skill is a purely informational SKILL.md file providing Tamil language guidance for WhatsApp interactions. It contains no code, no scripts, no network activity, no obfuscation, and no executable logic—only a markdown reference table and response style guidelines.",
+      "findingsCount": 0,
+      "findings": [],
+      "meta": {
+        "fileCount": 3,
+        "sizeBytes": 2172,
+        "inputTokens": 1227,
+        "outputTokens": 89,
+        "costUSD": 0.00836
+      }
+    },
+    {
+      "slug": "dynamodb",
+      "sketchyScore": 0,
+      "severity": "clean",
+      "recommendation": "safe",
+      "summary": "This skill is a pure documentation/reference skill for DynamoDB best practices. It contains only markdown content and JSON metadata with no executable code, no scripts, no network activity, and no suspicious patterns.",
+      "findingsCount": 0,
+      "findings": [],
+      "meta": {
+        "fileCount": 3,
+        "sizeBytes": 4173,
+        "inputTokens": 1819,
+        "outputTokens": 77,
+        "costUSD": 0.01102
+      }
+    },
+    {
+      "slug": "toml",
+      "sketchyScore": 0,
+      "severity": "clean",
+      "recommendation": "safe",
+      "summary": "This skill is a purely informational TOML reference guide contained entirely in SKILL.md with no executable code, no scripts, no network activity, and no suspicious patterns whatsoever.",
+      "findingsCount": 0,
+      "findings": [],
+      "meta": {
+        "fileCount": 3,
+        "sizeBytes": 2688,
+        "inputTokens": 1460,
+        "outputTokens": 69,
+        "costUSD": 0.009024999999999998
+      }
+    },
+    {
+      "slug": "word-docx",
+      "sketchyScore": 0,
+      "severity": "clean",
+      "recommendation": "safe",
+      "summary": "This skill is a purely informational reference document about DOCX file structure and best practices. It contains no executable code, no scripts, no network activity, and no suspicious patterns whatsoever.",
+      "findingsCount": 0,
+      "findings": [],
+      "meta": {
+        "fileCount": 3,
+        "sizeBytes": 3325,
+        "inputTokens": 1613,
+        "outputTokens": 74,
+        "costUSD": 0.009915
+      }
+    }
+  ]
+}
