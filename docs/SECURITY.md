@@ -22,7 +22,7 @@
 
 **Use a dedicated, isolated directory:**
 ```
-/Users/sloth/.openclaw/workspace/sketchyskills/scanner-data/
+/path/to/workspace/sketchyskills/scanner-data/
 ├── skills/           # Downloaded skill bundles (untrusted)
 └── .clawhub/         # ClawHub CLI metadata
 ```
@@ -35,7 +35,7 @@
 **Implementation:**
 ```bash
 # In fetch-skills.js
-const WORKDIR = '/Users/sloth/.openclaw/workspace/sketchyskills/scanner-data';
+const WORKDIR = '/path/to/workspace/sketchyskills/scanner-data';
 // ClawHub downloads to: scanner-data/skills/{skill-slug}/
 ```
 
@@ -193,7 +193,7 @@ Before we download anything:
 // fetch-skills.js
 import { execSync } from 'child_process';
 
-const WORKDIR = '/Users/sloth/.openclaw/workspace/sketchyskills/scanner-data';
+const WORKDIR = '/path/to/workspace/sketchyskills/scanner-data';
 const MAX_SIZE_MB = 10;
 const TIMEOUT_SEC = 30;
 
@@ -224,7 +224,7 @@ const analysis = await analyzeWithOpus(skillMd);
 **Phase 3: Cleanup (paranoia)**
 ```bash
 # After scan completes, nuke the download directory
-rm -rf /Users/sloth/.openclaw/workspace/sketchyskills/scanner-data/skills
+rm -rf /path/to/workspace/sketchyskills/scanner-data/skills
 ```
 
 ---

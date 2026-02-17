@@ -6,7 +6,7 @@
 **Next Milestone:** Test Run & Analysis Engine
 
 **📍 Locations:**
-- Workspace: `/Users/sloth/.openclaw/workspace/sketchyskills/PROJECT_PLAN.md`
+- Workspace: `/path/to/workspace/sketchyskills/PROJECT_PLAN.md`
 - Obsidian: `20 Projects/SketchySkills Project Plan`
 
 ---
@@ -399,7 +399,7 @@ clawhub login  # Browser OAuth flow
 
 **Action:**
 ```bash
-cd /Users/sloth/.openclaw/workspace/sketchyskills/scanner
+cd /path/to/workspace/sketchyskills/scanner
 npm run fetch
 ```
 
@@ -574,7 +574,7 @@ function classifySeverity(score) {
   },
   "payload": {
     "kind": "agentTurn",
-    "message": "Run SketchySkills daily scan: cd /Users/sloth/.openclaw/workspace/sketchyskills/scanner && npm run scan && git add ../dashboard/public/data/results.json && git commit -m 'Daily scan results' && git push",
+    "message": "Run SketchySkills daily scan: cd /path/to/workspace/sketchyskills/scanner && npm run scan && git add ../dashboard/public/data/results.json && git commit -m 'Daily scan results' && git push",
     "model": "anthropic/claude-opus-4-6",
     "timeoutSeconds": 7200
   },

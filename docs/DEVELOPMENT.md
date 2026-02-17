@@ -14,7 +14,7 @@
 ### 1. Clone & Install
 
 ```bash
-cd /Users/sloth/.openclaw/workspace/sketchyskills
+cd /path/to/workspace/sketchyskills
 
 # Install scanner dependencies
 cd scanner
@@ -195,7 +195,7 @@ When the scanner runs (via cron), it commits updated `results.json` to GitHub. V
   },
   "payload": {
     "kind": "agentTurn",
-    "message": "Run SketchySkills scanner: cd /Users/sloth/.openclaw/workspace/sketchyskills/scanner && npm run scan. Then commit & push results to GitHub.",
+    "message": "Run SketchySkills scanner: cd /path/to/workspace/sketchyskills/scanner && npm run scan. Then commit & push results to GitHub.",
     "model": "anthropic/claude-opus-4-6",
     "timeoutSeconds": 3600
   },
